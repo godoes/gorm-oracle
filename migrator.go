@@ -14,7 +14,7 @@ type Migrator struct {
 }
 
 func (m Migrator) CurrentDatabase() (name string) {
-	m.DB.Raw(
+	_ = m.DB.Raw(
 		fmt.Sprintf(`SELECT ORA_DATABASE_NAME as "Current Database" FROM %s`, m.Dialector.(Dialector).DummyTableName()),
 	).Row().Scan(&name)
 	return
@@ -22,12 +22,13 @@ func (m Migrator) CurrentDatabase() (name string) {
 
 func (m Migrator) CreateTable(values ...interface{}) error {
 	for _, value := range values {
-		m.TryQuotifyReservedWords(value)
-		m.TryRemoveOnUpdate(value)
+		_ = m.TryQuotifyReservedWords(value)
+		_ = m.TryRemoveOnUpdate(value)
 	}
 	return m.Migrator.CreateTable(values...)
 }
 
+//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) DropTable(values ...interface{}) error {
 	values = m.ReorderModels(values, false)
 	for i := len(values) - 1; i >= 0; i-- {
@@ -47,7 +48,7 @@ func (m Migrator) DropTable(values ...interface{}) error {
 func (m Migrator) HasTable(value interface{}) bool {
 	var count int64
 
-	m.RunWithValue(value, func(stmt *gorm.Statement) error {
+	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		return m.DB.Raw("SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = ?", stmt.Table).Row().Scan(&count)
 	})
 
@@ -87,6 +88,7 @@ func (m Migrator) RenameTable(oldName, newName interface{}) (err error) {
 	).Error
 }
 
+//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) AddColumn(value interface{}, field string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if field := stmt.Schema.LookUpField(field); field != nil {
@@ -99,6 +101,7 @@ func (m Migrator) AddColumn(value interface{}, field string) error {
 	})
 }
 
+//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) DropColumn(value interface{}, name string) error {
 	if !m.HasColumn(value, name) {
 		return nil
@@ -117,6 +120,7 @@ func (m Migrator) DropColumn(value interface{}, name string) error {
 	})
 }
 
+//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) AlterColumn(value interface{}, field string) error {
 	if !m.HasColumn(value, field) {
 		return nil
@@ -143,10 +147,11 @@ func (m Migrator) HasColumn(value interface{}, field string) bool {
 }
 
 func (m Migrator) CreateConstraint(value interface{}, name string) error {
-	m.TryRemoveOnUpdate(value)
+	_ = m.TryRemoveOnUpdate(value)
 	return m.Migrator.CreateConstraint(value, name)
 }
 
+//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) DropConstraint(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		for _, chk := range stmt.Schema.ParseCheckConstraints() {
@@ -186,7 +191,7 @@ func (m Migrator) DropIndex(value interface{}, name string) error {
 
 func (m Migrator) HasIndex(value interface{}, name string) bool {
 	var count int64
-	m.RunWithValue(value, func(stmt *gorm.Statement) error {
+	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if idx := stmt.Schema.LookIndex(name); idx != nil {
 			name = idx.Name
 		}
@@ -201,15 +206,16 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 	return count > 0
 }
 
-// https://docs.oracle.com/database/121/SPATL/alter-index-rename.htm
+// RenameIndex https://docs.oracle.com/database/121/SPATL/alter-index-rename.htm
 func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error {
-	panic("TODO")
-	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		return m.DB.Exec(
-			"ALTER INDEX ?.? RENAME TO ?", // wat
-			clause.Table{Name: stmt.Table}, clause.Column{Name: oldName}, clause.Column{Name: newName},
-		).Error
-	})
+	// TODO RenameIndex
+	panic(fmt.Sprintf("TODO RenameIndex(%v, %s, %s)", value, oldName, newName))
+	//return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+	//	return m.DB.Exec(
+	//		"ALTER INDEX ?.? RENAME TO ?", // wat
+	//		clause.Table{Name: stmt.Table}, clause.Column{Name: oldName}, clause.Column{Name: newName},
+	//	).Error
+	//})
 }
 
 func (m Migrator) TryRemoveOnUpdate(values ...interface{}) error {

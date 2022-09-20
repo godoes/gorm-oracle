@@ -15,15 +15,15 @@ func (w WhenMatched) Name() string {
 
 func (w WhenMatched) Build(builder clause.Builder) {
 	if len(w.Set) > 0 {
-		builder.WriteString(" THEN")
-		builder.WriteString(" UPDATE ")
-		builder.WriteString(w.Name())
-		builder.WriteByte(' ')
+		_, _ = builder.WriteString(" THEN")
+		_, _ = builder.WriteString(" UPDATE ")
+		_, _ = builder.WriteString(w.Name())
+		_ = builder.WriteByte(' ')
 		w.Build(builder)
 
 		buildWhere := func(where clause.Where) {
-			builder.WriteString(where.Name())
-			builder.WriteByte(' ')
+			_, _ = builder.WriteString(where.Name())
+			_ = builder.WriteByte(' ')
 			where.Build(builder)
 		}
 
@@ -32,7 +32,7 @@ func (w WhenMatched) Build(builder clause.Builder) {
 		}
 
 		if len(w.Delete.Exprs) > 0 {
-			builder.WriteString(" DELETE ")
+			_, _ = builder.WriteString(" DELETE ")
 			buildWhere(w.Delete)
 		}
 	}

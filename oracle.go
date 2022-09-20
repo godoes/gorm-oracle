@@ -3,19 +3,20 @@ package oracle
 import (
 	"database/sql"
 	"fmt"
-	"gorm.io/gorm/utils"
 	"regexp"
 	"strconv"
 	"strings"
 
-	_ "github.com/godror/godror"
+	"github.com/sijms/go-ora/v2"
 	"github.com/thoas/go-funk"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
 	"gorm.io/gorm/logger"
 	"gorm.io/gorm/migrator"
 	"gorm.io/gorm/schema"
+	"gorm.io/gorm/utils"
 )
 
 type Config struct {
@@ -29,12 +30,23 @@ type Dialector struct {
 	*Config
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func Open(dsn string) gorm.Dialector {
 	return &Dialector{Config: &Config{DSN: dsn}}
 }
 
+//goland:noinspection GoUnusedExportedFunction
 func New(config Config) gorm.Dialector {
 	return &Dialector{Config: &config}
+}
+
+// BuildUrl create databaseURL from server, port, service, user, password, urlOptions
+// this function help build a will formed databaseURL and accept any character as it
+// convert special charters to corresponding values in URL
+//
+//goland:noinspection GoUnusedExportedFunction
+func BuildUrl(server string, port int, service, user, password string, options map[string]string) string {
+	return go_ora.BuildUrl(server, port, service, user, password, options)
 }
 
 func (d Dialector) DummyTableName() string {
@@ -56,8 +68,8 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 		UpdateClauses: []string{"UPDATE", "SET", "WHERE", "RETURNING"},
 		DeleteClauses: []string{"DELETE", "FROM", "WHERE", "RETURNING"},
 	})
-	
-	d.DriverName = "godror"
+
+	d.DriverName = "oracle"
 
 	if d.Conn != nil {
 		db.ConnPool = d.Conn
@@ -86,26 +98,26 @@ func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 		if stmt, ok := builder.(*gorm.Statement); ok {
 			if _, ok := stmt.Clauses["ORDER BY"]; !ok {
 				s := stmt.Schema
-				builder.WriteString("ORDER BY ")
+				_, _ = builder.WriteString("ORDER BY ")
 				if s != nil && s.PrioritizedPrimaryField != nil {
 					builder.WriteQuoted(s.PrioritizedPrimaryField.DBName)
-					builder.WriteByte(' ')
+					_ = builder.WriteByte(' ')
 				} else {
-					builder.WriteString("(SELECT NULL FROM ")
-					builder.WriteString(d.DummyTableName())
-					builder.WriteString(")")
+					_, _ = builder.WriteString("(SELECT NULL FROM ")
+					_, _ = builder.WriteString(d.DummyTableName())
+					_, _ = builder.WriteString(")")
 				}
 			}
 		}
 
 		if offset := limit.Offset; offset > 0 {
-			builder.WriteString(" OFFSET ")
-			builder.WriteString(strconv.Itoa(offset))
-			builder.WriteString(" ROWS")
+			_, _ = builder.WriteString(" OFFSET ")
+			_, _ = builder.WriteString(strconv.Itoa(offset))
+			_, _ = builder.WriteString(" ROWS")
 		}
-		if limit := limit.Limit; limit > 0 {
+		if limit := limit.Limit; *limit > 0 {
 			builder.WriteString(" FETCH NEXT ")
-			builder.WriteString(strconv.Itoa(limit))
+			builder.WriteString(strconv.Itoa(*limit))
 			builder.WriteString(" ROWS ONLY")
 		}
 	}
@@ -127,13 +139,13 @@ func (d Dialector) Migrator(db *gorm.DB) gorm.Migrator {
 	}
 }
 
-func (d Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, v interface{}) {
-	writer.WriteString(":")
-	writer.WriteString(strconv.Itoa(len(stmt.Vars)))
+func (d Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, _ interface{}) {
+	_, _ = writer.WriteString(":")
+	_, _ = writer.WriteString(strconv.Itoa(len(stmt.Vars)))
 }
 
 func (d Dialector) QuoteTo(writer clause.Writer, str string) {
-	writer.WriteString(str)
+	_, _ = writer.WriteString(str)
 }
 
 var numericPlaceholder = regexp.MustCompile(`:(\d+)`)

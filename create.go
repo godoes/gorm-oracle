@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"reflect"
 
+	"github.com/godoes/gorm-oracle/clauses"
 	"github.com/thoas/go-funk"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
 	gormSchema "gorm.io/gorm/schema"
-
-	"github.com/dzwvip/oracle/clauses"
 )
 
 func Create(db *gorm.DB) {
@@ -82,10 +82,10 @@ func Create(db *gorm.DB) {
 			}
 			stmt.Build("INSERT", "VALUES", "RETURNING")
 			if hasDefaultValues {
-				stmt.WriteString(" INTO ")
+				_, _ = stmt.WriteString(" INTO ")
 				for idx, field := range schema.FieldsWithDefaultDBValue {
 					if idx > 0 {
-						stmt.WriteByte(',')
+						_ = stmt.WriteByte(',')
 					}
 					boundVars[field.Name] = len(stmt.Vars)
 					stmt.AddVar(stmt, sql.Out{Dest: reflect.New(field.FieldType).Interface()})
@@ -94,9 +94,9 @@ func Create(db *gorm.DB) {
 		}
 
 		if !db.DryRun {
-			for idx, vals := range values.Values {
-				// HACK HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
-				for idx, val := range vals {
+			for idx, value := range values.Values {
+				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
+				for idx, val := range value {
 					switch v := val.(type) {
 					case bool:
 						if v {
@@ -134,8 +134,8 @@ func Create(db *gorm.DB) {
 							func(field *gormSchema.Field) {
 								switch insertTo.Kind() {
 								case reflect.Struct:
-									if err = field.Set(stmt.Context,insertTo, stmt.Vars[boundVars[field.Name]].(sql.Out).Dest); err != nil {
-										db.AddError(err)
+									if err = field.Set(stmt.Context, insertTo, stmt.Vars[boundVars[field.Name]].(sql.Out).Dest); err != nil {
+										_ = db.AddError(err)
 									}
 								case reflect.Map:
 									// todo 设置id的值
@@ -144,7 +144,7 @@ func Create(db *gorm.DB) {
 						)
 					}
 				default: // failure
-					db.AddError(err)
+					_ = db.AddError(err)
 				}
 			}
 		}

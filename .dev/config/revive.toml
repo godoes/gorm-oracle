@@ -1,0 +1,7 @@
+# revive 静态检查配置文件：https://revive.run/docs
+# 命令示例：go run github.com/mgechev/revive@latest -config config/revive.toml -exclude ./vendor/... -formatter stylish ./...
+
+# https://revive.run/r#var-naming
+# 变量命名检查规则：[2][]string，第一个子切片为白名单，第二个子切片为黑名单
+[rule.var-naming]
+  arguments = [["API", "HTTP", "ID", "JSON", "SQL", "URL", "XML"], ["VM"]]

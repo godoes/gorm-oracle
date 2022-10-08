@@ -75,6 +75,9 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 		db.ConnPool = d.Conn
 	} else {
 		db.ConnPool, err = sql.Open(d.DriverName, d.DSN)
+		if err != nil {
+			return
+		}
 	}
 
 	if err = db.Callback().Create().Replace("gorm:create", Create); err != nil {
@@ -115,10 +118,10 @@ func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 			_, _ = builder.WriteString(strconv.Itoa(offset))
 			_, _ = builder.WriteString(" ROWS")
 		}
-		if limit := limit.Limit; *limit > 0 {
-			builder.WriteString(" FETCH NEXT ")
-			builder.WriteString(strconv.Itoa(*limit))
-			builder.WriteString(" ROWS ONLY")
+		if limit := limit.Limit; limit != nil && *limit >= 0 {
+			_, _ = builder.WriteString(" FETCH NEXT ")
+			_, _ = builder.WriteString(strconv.Itoa(*limit))
+			_, _ = builder.WriteString(" ROWS ONLY")
 		}
 	}
 }

@@ -1,8 +1,8 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="go-staticcheck" type="BatchConfigurationType" factoryName="Batch">
-    <module name="granada.framework" />
+    <module name="github.com/godoes/gorm-oracle" />
     <option name="INTERPRETER_OPTIONS" value="" />
-    <option name="WORKING_DIRECTORY" value="./.dev/script" />
+    <option name="WORKING_DIRECTORY" value="./_dev/script" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="BatNoPause" value="1" />

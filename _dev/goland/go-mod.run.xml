@@ -1,13 +1,13 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="go-vulncheck" type="BatchConfigurationType" factoryName="Batch">
-    <module name="granada.framework" />
+  <configuration default="false" name="go-mod" type="BatchConfigurationType" factoryName="Batch">
+    <module name="github.com/godoes/gorm-oracle" />
     <option name="INTERPRETER_OPTIONS" value="" />
-    <option name="WORKING_DIRECTORY" value="./.dev/script" />
+    <option name="WORKING_DIRECTORY" value="./_dev/script" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
       <env name="BatNoPause" value="1" />
     </envs>
-    <option name="SCRIPT_NAME" value="go-vulncheck.bat" />
+    <option name="SCRIPT_NAME" value="go-mod.bat" />
     <option name="PARAMETERS" value="" />
     <method v="2" />
   </configuration>

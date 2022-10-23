@@ -11,7 +11,7 @@ GORM Oracle driver for connect Oracle DB and Manage Oracle DB, Based on [CengSin
 - Oracle 12C+
 - Golang 1.13+
 - see [ODPI-C Installation.](https://oracle.github.io/odpi/doc/installation.html)
-- gorm 1.23.4+
+- gorm 1.24.0+
 
 ## Quick Start
 ### how to install 

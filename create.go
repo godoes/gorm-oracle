@@ -61,7 +61,7 @@ func Create(db *gorm.DB) {
 				},
 				On: funk.Map(schema.PrimaryFields, func(field *gormSchema.Field) clause.Expression {
 					return clause.Eq{
-						Column: clause.Column{Table: stmt.Table, Name: field.DBName},
+						Column: clause.Column{Table: stmt.Schema.Table, Name: field.DBName},
 						Value:  clause.Column{Table: clauses.MergeDefaultExcludeName(), Name: field.DBName},
 					}
 				}).([]clause.Expression),
@@ -71,7 +71,7 @@ func Create(db *gorm.DB) {
 
 			stmt.Build("MERGE", "WHEN MATCHED", "WHEN NOT MATCHED")
 		} else {
-			stmt.AddClauseIfNotExists(clause.Insert{Table: clause.Table{Name: stmt.Table}})
+			stmt.AddClauseIfNotExists(clause.Insert{Table: clause.Table{Name: stmt.Schema.Table}})
 			stmt.AddClause(clause.Values{Columns: values.Columns, Values: [][]interface{}{values.Values[0]}})
 			if hasDefaultValues {
 				stmt.AddClauseIfNotExists(clause.Returning{

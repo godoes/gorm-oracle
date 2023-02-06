@@ -16,13 +16,16 @@ import (
 
 func Create(db *gorm.DB) {
 	stmt := db.Statement
-	schema := stmt.Schema
-	boundVars := make(map[string]int)
-
-	if stmt == nil || schema == nil {
+	if stmt == nil {
 		return
 	}
 
+	schema := stmt.Schema
+	if schema == nil {
+		return
+	}
+
+	boundVars := make(map[string]int)
 	hasDefaultValues := len(schema.FieldsWithDefaultDBValue) > 0
 
 	if !stmt.Unscoped {

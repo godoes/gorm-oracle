@@ -6,8 +6,9 @@ rem by iTanken
 echo 开始进行静态检查... & echo.
 
 cd /d %~dp0/../../
-echo [revive.run]
-go run github.com/mgechev/revive@latest -config ./_dev/config/revive.toml -exclude ./vendor/... -formatter stylish ./...
+
+echo. & echo [golangci-lint.run]
+go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run
 echo. & echo [staticcheck.io]
 go run honnef.co/go/tools/cmd/staticcheck@latest -f text ./...
 

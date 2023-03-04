@@ -212,9 +212,7 @@ func (d Dialector) DataTypeOf(field *schema.Field) string {
 
 	case schema.Time:
 		sqlType = "TIMESTAMP WITH TIME ZONE"
-		if field.NotNull || field.PrimaryKey {
-			sqlType += " NOT NULL"
-		}
+
 	case schema.Bytes:
 		sqlType = "BLOB"
 	default:
@@ -228,18 +226,6 @@ func (d Dialector) DataTypeOf(field *schema.Field) string {
 			panic(fmt.Sprintf("invalid sql type %s (%s) for oracle", field.FieldType.Name(), field.FieldType.String()))
 		}
 
-		notNull, _ := field.TagSettings["NOT NULL"]
-		unique, _ := field.TagSettings["UNIQUE"]
-		additionalType := fmt.Sprintf("%s %s", notNull, unique)
-		if value, ok := field.TagSettings["DEFAULT"]; ok {
-			additionalType = fmt.Sprintf("%s %s %s%s", "DEFAULT", value, additionalType, func() string {
-				if value, ok := field.TagSettings["COMMENT"]; ok {
-					return " COMMENT " + value
-				}
-				return ""
-			}())
-		}
-		sqlType = fmt.Sprintf("%v %v", sqlType, additionalType)
 	}
 
 	return sqlType

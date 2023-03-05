@@ -1,7 +1,9 @@
 package oracle
 
 import (
+	"database/sql"
 	"fmt"
+	"gorm.io/gorm/schema"
 	"strings"
 
 	"gorm.io/gorm"
@@ -48,10 +50,44 @@ func (m Migrator) HasTable(value interface{}) bool {
 	var count int64
 
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		return m.DB.Raw("SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = ?", stmt.Table).Row().Scan(&count)
+		if strings.Contains(stmt.Schema.Table, ".") {
+			ownertable := strings.Split(stmt.Schema.Table, ".")
+			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TABLES WHERE OWNER = ?  and  TABLE_NAME = ?", ownertable[0], ownertable[1]).Row().Scan(&count)
+		} else {
+			return m.DB.Raw("SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = ?", stmt.Table).Row().Scan(&count)
+		}
 	})
 
 	return count > 0
+}
+
+// ColumnTypes return columnTypes []gorm.ColumnType and execErr error
+func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
+	columnTypes := make([]gorm.ColumnType, 0)
+	execErr := m.RunWithValue(value, func(stmt *gorm.Statement) (err error) {
+		rows, err := m.DB.Session(&gorm.Session{}).Table(stmt.Schema.Table).Where("ROWNUM = 1").Rows()
+		if err != nil {
+			return err
+		}
+
+		defer func() {
+			err = rows.Close()
+		}()
+
+		var rawColumnTypes []*sql.ColumnType
+		rawColumnTypes, err = rows.ColumnTypes()
+		if err != nil {
+			return err
+		}
+
+		for _, c := range rawColumnTypes {
+			columnTypes = append(columnTypes, migrator.ColumnType{SQLColumnType: c})
+		}
+
+		return
+	})
+
+	return columnTypes, execErr
 }
 
 func (m Migrator) RenameTable(oldName, newName interface{}) (err error) {
@@ -92,7 +128,7 @@ func (m Migrator) AddColumn(value interface{}, field string) error {
 		if field := stmt.Schema.LookUpField(field); field != nil {
 			return m.DB.Exec(
 				"ALTER TABLE ? ADD ? ?",
-				clause.Table{Name: stmt.Table}, clause.Column{Name: field.DBName}, m.DB.Migrator().FullDataTypeOf(field),
+				clause.Table{Name: stmt.Schema.Table}, clause.Column{Name: field.DBName}, m.DB.Migrator().FullDataTypeOf(field),
 			).Error
 		}
 		return fmt.Errorf("failed to look up field with name: %s", field)
@@ -111,7 +147,7 @@ func (m Migrator) DropColumn(value interface{}, name string) error {
 
 		return m.DB.Exec(
 			"ALTER TABLE ? DROP ?",
-			clause.Table{Name: stmt.Table},
+			clause.Table{Name: stmt.Schema.Table},
 			clause.Column{Name: name},
 		).Error
 	})
@@ -126,9 +162,9 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 		if field := stmt.Schema.LookUpField(field); field != nil {
 			return m.DB.Exec(
 				"ALTER TABLE ? MODIFY ? ?",
-				clause.Table{Name: stmt.Table},
+				clause.Table{Name: stmt.Schema.Table},
 				clause.Column{Name: field.DBName},
-				m.FullDataTypeOf(field),
+				m.AlterDataTypeOf(stmt, field),
 			).Error
 		}
 		return fmt.Errorf("failed to look up field with name: %s", field)
@@ -138,10 +174,46 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 func (m Migrator) HasColumn(value interface{}, field string) bool {
 	var count int64
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		return m.DB.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field).Row().Scan(&count)
+		if strings.Contains(stmt.Schema.Table, ".") {
+			ownertable := strings.Split(stmt.Schema.Table, ".")
+			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field).Row().Scan(&count)
+		} else {
+			return m.DB.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field).Row().Scan(&count)
+		}
+
 	}) == nil && count > 0
 }
 
+func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (expr clause.Expr) {
+	expr.SQL = m.DataTypeOf(field)
+
+	var nullable = ""
+	if strings.Contains(stmt.Schema.Table, ".") {
+		ownertable := strings.Split(stmt.Schema.Table, ".")
+		m.DB.Raw("SELECT NULLABLE FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field.DBName).Row().Scan(&nullable)
+	} else {
+		m.DB.Raw("SELECT NULLABLE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field.DBName).Row().Scan(&nullable)
+	}
+	if field.NotNull && nullable == "Y" {
+		expr.SQL += " NOT NULL"
+	}
+
+	if field.Unique {
+		expr.SQL += " UNIQUE"
+	}
+
+	if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
+		if field.DefaultValueInterface != nil {
+			defaultStmt := &gorm.Statement{Vars: []interface{}{field.DefaultValueInterface}}
+			m.Dialector.BindVarTo(defaultStmt, defaultStmt, field.DefaultValueInterface)
+			expr.SQL += " DEFAULT " + m.Dialector.Explain(defaultStmt.SQL.String(), field.DefaultValueInterface)
+		} else if field.DefaultValue != "(-)" {
+			expr.SQL += " DEFAULT " + field.DefaultValue
+		}
+	}
+
+	return
+}
 func (m Migrator) CreateConstraint(value interface{}, name string) error {
 	m.TryRemoveOnUpdate(value)
 	return m.Migrator.CreateConstraint(value, name)
@@ -153,14 +225,14 @@ func (m Migrator) DropConstraint(value interface{}, name string) error {
 			if chk.Name == name {
 				return m.DB.Exec(
 					"ALTER TABLE ? DROP CHECK ?",
-					clause.Table{Name: stmt.Table}, clause.Column{Name: name},
+					clause.Table{Name: stmt.Schema.Table}, clause.Column{Name: name},
 				).Error
 			}
 		}
 
 		return m.DB.Exec(
 			"ALTER TABLE ? DROP CONSTRAINT ?",
-			clause.Table{Name: stmt.Table}, clause.Column{Name: name},
+			clause.Table{Name: stmt.Schema.Table}, clause.Column{Name: name},
 		).Error
 	})
 }
@@ -180,7 +252,7 @@ func (m Migrator) DropIndex(value interface{}, name string) error {
 			name = idx.Name
 		}
 
-		return m.DB.Exec("DROP INDEX ?", clause.Column{Name: name}, clause.Table{Name: stmt.Table}).Error
+		return m.DB.Exec("DROP INDEX ?", clause.Column{Name: name}, clause.Table{Name: stmt.Schema.Table}).Error
 	})
 }
 

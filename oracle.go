@@ -168,9 +168,7 @@ func (d Dialector) Explain(sql string, vars ...interface{}) string {
 }
 
 func (d Dialector) DataTypeOf(field *schema.Field) string {
-	if _, found := field.TagSettings["RESTRICT"]; found {
-		delete(field.TagSettings, "RESTRICT")
-	}
+	delete(field.TagSettings, "RESTRICT")
 
 	var sqlType string
 

@@ -156,6 +156,7 @@ func (m Migrator) DropColumn(value interface{}, name string) error {
 	})
 }
 
+//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) AlterColumn(value interface{}, field string) error {
 	if !m.HasColumn(value, field) {
 		return nil
@@ -193,9 +194,9 @@ func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (ex
 	var nullable = ""
 	if strings.Contains(stmt.Schema.Table, ".") {
 		ownertable := strings.Split(stmt.Schema.Table, ".")
-		m.DB.Raw("SELECT NULLABLE FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field.DBName).Row().Scan(&nullable)
+		_ = m.DB.Raw("SELECT NULLABLE FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field.DBName).Row().Scan(&nullable)
 	} else {
-		m.DB.Raw("SELECT NULLABLE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field.DBName).Row().Scan(&nullable)
+		_ = m.DB.Raw("SELECT NULLABLE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field.DBName).Row().Scan(&nullable)
 	}
 	if field.NotNull && nullable == "Y" {
 		expr.SQL += " NOT NULL"

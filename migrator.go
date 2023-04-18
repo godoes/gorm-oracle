@@ -50,7 +50,7 @@ func (m Migrator) HasTable(value interface{}) bool {
 	var count int64
 
 	m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if strings.Contains(stmt.Schema.Table, ".") {
+		if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
 			ownertable := strings.Split(stmt.Schema.Table, ".")
 			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TABLES WHERE OWNER = ?  and  TABLE_NAME = ?", ownertable[0], ownertable[1]).Row().Scan(&count)
 		} else {
@@ -174,7 +174,7 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 func (m Migrator) HasColumn(value interface{}, field string) bool {
 	var count int64
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if strings.Contains(stmt.Schema.Table, ".") {
+		if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
 			ownertable := strings.Split(stmt.Schema.Table, ".")
 			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field).Row().Scan(&count)
 		} else {
@@ -188,7 +188,7 @@ func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (ex
 	expr.SQL = m.DataTypeOf(field)
 
 	var nullable = ""
-	if strings.Contains(stmt.Schema.Table, ".") {
+	if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
 		ownertable := strings.Split(stmt.Schema.Table, ".")
 		m.DB.Raw("SELECT NULLABLE FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field.DBName).Row().Scan(&nullable)
 	} else {

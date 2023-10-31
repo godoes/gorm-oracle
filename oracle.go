@@ -248,10 +248,10 @@ func (d Dialector) DataTypeOf(field *schema.Field) string {
 			}
 		}
 
-		if size >= 2000 {
-			sqlType = "CLOB"
-		} else {
+		if size > 0 && size < 2000 {
 			sqlType = fmt.Sprintf("VARCHAR2(%d)", size)
+		} else {
+			sqlType = "CLOB"
 		}
 
 	case schema.Time:

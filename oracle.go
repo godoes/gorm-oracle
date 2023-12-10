@@ -27,6 +27,7 @@ type Config struct {
 	Conn              gorm.ConnPool //*sql.DB
 	DefaultStringSize uint
 	DBVer             string
+	IgnoreCase        bool
 }
 
 type Dialector struct {
@@ -80,6 +81,12 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 		db.ConnPool, err = sql.Open(d.DriverName, d.DSN)
 		if err != nil {
 			return
+		}
+	}
+	if d.IgnoreCase {
+		if sqlDB, ok := db.ConnPool.(*sql.DB); ok {
+			_ = go_ora.AddSessionParam(sqlDB, "NLS_COMP", "ANSI")
+			_ = go_ora.AddSessionParam(sqlDB, "NLS_SORT", "binary_ci")
 		}
 	}
 	err = db.ConnPool.QueryRowContext(context.Background(), "select version from product_component_version where rownum = 1").Scan(&d.DBVer)
@@ -194,7 +201,55 @@ func (d Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, _ inter
 }
 
 func (d Dialector) QuoteTo(writer clause.Writer, str string) {
-	_, _ = writer.WriteString(str)
+	if d.IgnoreCase {
+		var (
+			underQuoted, selfQuoted bool
+			continuousBacktick      int8
+			shiftDelimiter          int8
+		)
+
+		for _, v := range []byte(str) {
+			switch v {
+			case '"':
+				continuousBacktick++
+				if continuousBacktick == 2 {
+					_, _ = writer.WriteString(`""`)
+					continuousBacktick = 0
+				}
+			case '.':
+				if continuousBacktick > 0 || !selfQuoted {
+					shiftDelimiter = 0
+					underQuoted = false
+					continuousBacktick = 0
+					_ = writer.WriteByte('"')
+				}
+				_ = writer.WriteByte(v)
+				continue
+			default:
+				if shiftDelimiter-continuousBacktick <= 0 && !underQuoted {
+					_ = writer.WriteByte('"')
+					underQuoted = true
+					if selfQuoted = continuousBacktick > 0; selfQuoted {
+						continuousBacktick -= 1
+					}
+				}
+
+				for ; continuousBacktick > 0; continuousBacktick -= 1 {
+					_, _ = writer.WriteString(`""`)
+				}
+
+				_ = writer.WriteByte(v)
+			}
+			shiftDelimiter++
+		}
+
+		if continuousBacktick > 0 && !selfQuoted {
+			_, _ = writer.WriteString(`""`)
+		}
+		_ = writer.WriteByte('"')
+	} else {
+		_, _ = writer.WriteString(str)
+	}
 }
 
 var numericPlaceholder = regexp.MustCompile(`:(\d+)`)

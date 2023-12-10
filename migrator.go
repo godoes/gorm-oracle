@@ -15,6 +15,40 @@ type Migrator struct {
 	migrator.Migrator
 }
 
+// AutoMigrate 自动迁移模型为表结构
+//
+//	// 迁移并设置单个表注释
+//	db.Set("gorm:table_comments", "用户信息表").AutoMigrate(&User{})
+//
+//	// 迁移并设置多个表注释
+//	db.Set("gorm:table_comments", []string{"用户信息表", "公司信息表"}).AutoMigrate(&User{}, &Company{})
+func (m Migrator) AutoMigrate(dst ...interface{}) error {
+	if err := m.Migrator.AutoMigrate(dst...); err != nil {
+		return err
+	}
+	if tableComments, ok := m.DB.Get("gorm:table_comments"); ok {
+		var comments []string
+		switch c := tableComments.(type) {
+		case string:
+			comments = append(comments, c)
+		case []string:
+			comments = c
+		default:
+			return nil
+		}
+		for i := 0; i < len(dst) && i < len(comments); i++ {
+			value := dst[i]
+			comment := strings.ReplaceAll(comments[i], "'", "''")
+			if err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
+				return m.DB.Exec(fmt.Sprintf("COMMENT ON TABLE ? IS '%s'", comment), m.CurrentTable(stmt)).Error
+			}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (m Migrator) CurrentDatabase() (name string) {
 	_ = m.DB.Raw(
 		fmt.Sprintf(`SELECT ORA_DATABASE_NAME as "Current Database" FROM %s`, m.Dialector.(Dialector).DummyTableName()),
@@ -124,36 +158,12 @@ func (m Migrator) RenameTable(oldName, newName interface{}) (err error) {
 	).Error
 }
 
-//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) AddColumn(value interface{}, field string) error {
-	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if field := stmt.Schema.LookUpField(field); field != nil {
-			return m.DB.Exec(
-				"ALTER TABLE ? ADD ? ?",
-				clause.Table{Name: stmt.Schema.Table}, clause.Column{Name: field.DBName}, m.DB.Migrator().FullDataTypeOf(field),
-			).Error
-		}
-		return fmt.Errorf("failed to look up field with name: %s", field)
-	})
+	return m.Migrator.AddColumn(value, field)
 }
 
-//goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) DropColumn(value interface{}, name string) error {
-	if !m.HasColumn(value, name) {
-		return nil
-	}
-
-	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-		if field := stmt.Schema.LookUpField(name); field != nil {
-			name = field.DBName
-		}
-
-		return m.DB.Exec(
-			"ALTER TABLE ? DROP ?",
-			clause.Table{Name: stmt.Schema.Table},
-			clause.Column{Name: name},
-		).Error
-	})
+	return m.Migrator.DropColumn(value, name)
 }
 
 //goland:noinspection SqlNoDataSourceInspection
@@ -218,6 +228,7 @@ func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (ex
 
 	return
 }
+
 func (m Migrator) CreateConstraint(value interface{}, name string) error {
 	_ = m.TryRemoveOnUpdate(value)
 	return m.Migrator.CreateConstraint(value, name)
@@ -280,14 +291,12 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 
 // RenameIndex https://docs.oracle.com/database/121/SPATL/alter-index-rename.htm
 func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error {
-	// TODO RenameIndex
-	panic(fmt.Sprintf("TODO RenameIndex(%v, %s, %s)", value, oldName, newName))
-	//return m.RunWithValue(value, func(stmt *gorm.Statement) error {
-	//	return m.DB.Exec(
-	//		"ALTER INDEX ?.? RENAME TO ?", // wat
-	//		clause.Table{Name: stmt.Table}, clause.Column{Name: oldName}, clause.Column{Name: newName},
-	//	).Error
-	//})
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		return m.DB.Exec(
+			"ALTER INDEX ? RENAME TO ?",
+			clause.Column{Name: oldName}, clause.Column{Name: newName},
+		).Error
+	})
 }
 
 func (m Migrator) TryRemoveOnUpdate(values ...interface{}) error {

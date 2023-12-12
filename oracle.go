@@ -282,7 +282,7 @@ func (d Dialector) DataTypeOf(field *schema.Field) string {
 		switch {
 		case field.DataType == schema.Float:
 			sqlType = "FLOAT"
-		case field.Size <= 8:
+		case field.Size > 0 && field.Size <= 8:
 			sqlType = "SMALLINT"
 		}
 

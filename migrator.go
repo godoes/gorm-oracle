@@ -56,6 +56,14 @@ func (m Migrator) CurrentDatabase() (name string) {
 	return
 }
 
+func (m Migrator) GetTypeAliases(databaseTypeName string) (types []string) {
+	switch databaseTypeName {
+	case "clob", "ocicloblocator":
+		types = append(types, "clob", "ocicloblocator")
+	}
+	return
+}
+
 func (m Migrator) CreateTable(values ...interface{}) error {
 	for _, value := range values {
 		_ = m.TryQuotifyReservedWords(value)

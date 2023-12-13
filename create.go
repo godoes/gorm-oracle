@@ -2,11 +2,12 @@ package oracle
 
 import (
 	"bytes"
+	"database/sql"
 	"reflect"
+	"time"
 
 	"github.com/godoes/gorm-oracle/clauses"
 	"github.com/thoas/go-funk"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -92,6 +93,8 @@ func Create(db *gorm.DB) {
 						} else {
 							val = 0
 						}
+					default:
+						val = convertCustomType(val)
 					}
 
 					stmt.Vars[idx] = val
@@ -118,4 +121,37 @@ func Create(db *gorm.DB) {
 			}
 		}
 	}
+}
+
+func convertCustomType(val interface{}) interface{} {
+	rv := reflect.ValueOf(val)
+	ri := rv.Interface()
+	typeName := reflect.TypeOf(ri).Name()
+	if reflect.TypeOf(val).Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			typeName = rv.Type().Elem().Name()
+		} else {
+			for rv.Kind() == reflect.Ptr {
+				rv = rv.Elem()
+			}
+			ri = rv.Interface()
+			typeName = reflect.TypeOf(ri).Name()
+		}
+	}
+	if typeName == "DeletedAt" {
+		// gorm.DeletedAt
+		if rv.IsZero() {
+			val = sql.NullTime{}
+		} else {
+			val = ri.(gorm.DeletedAt).Time
+		}
+	} else if m := rv.MethodByName("Time"); m.IsValid() && m.Type().NumIn() == 0 {
+		// custom time type
+		for _, result := range m.Call([]reflect.Value{}) {
+			if reflect.TypeOf(result.Interface()).Name() == "Time" {
+				val = result.Interface().(time.Time)
+			}
+		}
+	}
+	return val
 }

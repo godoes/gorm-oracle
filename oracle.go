@@ -11,7 +11,6 @@ import (
 
 	"github.com/sijms/go-ora/v2"
 	"github.com/thoas/go-funk"
-
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"

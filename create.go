@@ -2,7 +2,6 @@ package oracle
 
 import (
 	"bytes"
-	"database/sql"
 	"reflect"
 
 	"github.com/godoes/gorm-oracle/clauses"
@@ -15,6 +14,10 @@ import (
 )
 
 func Create(db *gorm.DB) {
+	if db.Error != nil {
+		return
+	}
+
 	stmt := db.Statement
 	if stmt == nil {
 		return
@@ -25,9 +28,6 @@ func Create(db *gorm.DB) {
 		return
 	}
 
-	boundVars := make(map[string]int)
-	hasDefaultValues := len(schema.FieldsWithDefaultDBValue) > 0
-
 	if !stmt.Unscoped {
 		for _, c := range schema.CreateClauses {
 			stmt.AddClause(c)
@@ -35,8 +35,10 @@ func Create(db *gorm.DB) {
 	}
 
 	if stmt.SQL.String() == "" {
-		values := callbacks.ConvertToCreateValues(stmt)
-		onConflict, hasConflict := stmt.Clauses["ON CONFLICT"].Expression.(clause.OnConflict)
+		var (
+			values                  = callbacks.ConvertToCreateValues(stmt)
+			onConflict, hasConflict = stmt.Clauses["ON CONFLICT"].Expression.(clause.OnConflict)
+		)
 		// are all columns in value the primary fields in schema only?
 		if hasConflict && funk.Contains(
 			funk.Map(values.Columns, func(c clause.Column) string { return c.Name }),
@@ -76,27 +78,10 @@ func Create(db *gorm.DB) {
 		} else {
 			stmt.AddClauseIfNotExists(clause.Insert{Table: clause.Table{Name: stmt.Schema.Table}})
 			stmt.AddClause(clause.Values{Columns: values.Columns, Values: [][]interface{}{values.Values[0]}})
-			if hasDefaultValues {
-				stmt.AddClauseIfNotExists(clause.Returning{
-					Columns: funk.Map(schema.FieldsWithDefaultDBValue, func(field *gormSchema.Field) clause.Column {
-						return clause.Column{Name: field.DBName}
-					}).([]clause.Column),
-				})
-			}
-			stmt.Build("INSERT", "VALUES", "RETURNING")
-			if hasDefaultValues {
-				_, _ = stmt.WriteString(" INTO ")
-				for idx, field := range schema.FieldsWithDefaultDBValue {
-					if idx > 0 {
-						_ = stmt.WriteByte(',')
-					}
-					boundVars[field.Name] = len(stmt.Vars)
-					stmt.AddVar(stmt, sql.Out{Dest: reflect.New(field.FieldType).Interface()})
-				}
-			}
+			stmt.Build("INSERT", "VALUES")
 		}
 
-		if !db.DryRun {
+		if !db.DryRun && db.Error == nil {
 			for idx, value := range values.Values {
 				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
 				for idx, val := range value {
@@ -118,36 +103,17 @@ func Create(db *gorm.DB) {
 				// sneaky that some transaction inserts will exceed the buffer and so will be pushed at unknown point,
 				// resulting in dangling row entries, so we might need to delete them if an error happens
 
-				switch result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...); err {
-				case nil: // success
+				result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...)
+				if db.AddError(err) == nil {
+					// success
 					db.RowsAffected, _ = result.RowsAffected()
 
 					insertTo := stmt.ReflectValue
 					switch insertTo.Kind() {
 					case reflect.Slice, reflect.Array:
 						insertTo = insertTo.Index(idx)
+					default:
 					}
-
-					if hasDefaultValues {
-						// bind returning value back to reflected value in the respective fields
-						funk.ForEach(
-							funk.Filter(schema.FieldsWithDefaultDBValue, func(field *gormSchema.Field) bool {
-								return funk.Contains(boundVars, field.Name)
-							}),
-							func(field *gormSchema.Field) {
-								switch insertTo.Kind() {
-								case reflect.Struct:
-									if err = field.Set(stmt.Context, insertTo, stmt.Vars[boundVars[field.Name]].(sql.Out).Dest); err != nil {
-										_ = db.AddError(err)
-									}
-								case reflect.Map:
-									// todo 设置id的值
-								}
-							},
-						)
-					}
-				default: // failure
-					_ = db.AddError(err)
 				}
 			}
 		}

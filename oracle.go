@@ -26,7 +26,7 @@ type Config struct {
 	Conn              gorm.ConnPool //*sql.DB
 	DefaultStringSize uint
 	DBVer             string
-	IgnoreCase        bool
+	IgnoreCase        bool // warning: may cause performance issues
 }
 
 type Dialector struct {
@@ -84,8 +84,9 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 	}
 	if d.IgnoreCase {
 		if sqlDB, ok := db.ConnPool.(*sql.DB); ok {
-			_ = go_ora.AddSessionParam(sqlDB, "NLS_COMP", "ANSI")
-			_ = go_ora.AddSessionParam(sqlDB, "NLS_SORT", "binary_ci")
+			// warning: may cause performance issues
+			_ = go_ora.AddSessionParam(sqlDB, "NLS_COMP", "LINGUISTIC")
+			_ = go_ora.AddSessionParam(sqlDB, "NLS_SORT", "BINARY_CI")
 		}
 	}
 	err = db.ConnPool.QueryRowContext(context.Background(), "select version from product_component_version where rownum = 1").Scan(&d.DBVer)

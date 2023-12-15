@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/sijms/go-ora/v2"
 	"github.com/thoas/go-funk"
@@ -52,6 +54,39 @@ func BuildUrl(server string, port int, service, user, password string, options m
 	return go_ora.BuildUrl(server, port, service, user, password, options)
 }
 
+func convertCustomType(val interface{}) interface{} {
+	rv := reflect.ValueOf(val)
+	ri := rv.Interface()
+	typeName := reflect.TypeOf(ri).Name()
+	if reflect.TypeOf(val).Kind() == reflect.Ptr {
+		if rv.IsNil() {
+			typeName = rv.Type().Elem().Name()
+		} else {
+			for rv.Kind() == reflect.Ptr {
+				rv = rv.Elem()
+			}
+			ri = rv.Interface()
+			typeName = reflect.TypeOf(ri).Name()
+		}
+	}
+	if typeName == "DeletedAt" {
+		// gorm.DeletedAt
+		if rv.IsZero() {
+			val = sql.NullTime{}
+		} else {
+			val = ri.(gorm.DeletedAt).Time
+		}
+	} else if m := rv.MethodByName("Time"); m.IsValid() && m.Type().NumIn() == 0 {
+		// custom time type
+		for _, result := range m.Call([]reflect.Value{}) {
+			if reflect.TypeOf(result.Interface()).Name() == "Time" {
+				val = result.Interface().(time.Time)
+			}
+		}
+	}
+	return val
+}
+
 func (d Dialector) DummyTableName() string {
 	return "DUAL"
 }
@@ -65,12 +100,12 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 	d.DefaultStringSize = 1024
 
 	// register callbacks
-	//callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{WithReturning: true})
-	callbacks.RegisterDefaultCallbacks(db, &callbacks.Config{
+	config := &callbacks.Config{
 		CreateClauses: []string{"INSERT", "VALUES", "ON CONFLICT", "RETURNING"},
 		UpdateClauses: []string{"UPDATE", "SET", "WHERE", "RETURNING"},
 		DeleteClauses: []string{"DELETE", "FROM", "WHERE", "RETURNING"},
-	})
+	}
+	callbacks.RegisterDefaultCallbacks(db, config)
 
 	d.DriverName = "oracle"
 
@@ -95,6 +130,9 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 	}
 	//log.Println("DBver:" + d.DBVer)
 	if err = db.Callback().Create().Replace("gorm:create", Create); err != nil {
+		return
+	}
+	if err = db.Callback().Update().Replace("gorm:update", Update(config)); err != nil {
 		return
 	}
 

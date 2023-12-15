@@ -2,16 +2,14 @@ package oracle
 
 import (
 	"bytes"
-	"database/sql"
 	"reflect"
-	"time"
 
 	"github.com/godoes/gorm-oracle/clauses"
 	"github.com/thoas/go-funk"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
-	gormSchema "gorm.io/gorm/schema"
+	"gorm.io/gorm/schema"
 )
 
 func Create(db *gorm.DB) {
@@ -24,18 +22,18 @@ func Create(db *gorm.DB) {
 		return
 	}
 
-	schema := stmt.Schema
-	if schema == nil {
+	stmtSchema := stmt.Schema
+	if stmtSchema == nil {
 		return
 	}
 
 	if !stmt.Unscoped {
-		for _, c := range schema.CreateClauses {
+		for _, c := range stmtSchema.CreateClauses {
 			stmt.AddClause(c)
 		}
 	}
 
-	if stmt.SQL.String() == "" {
+	if stmt.SQL.Len() == 0 {
 		var (
 			values                  = callbacks.ConvertToCreateValues(stmt)
 			onConflict, hasConflict = stmt.Clauses["ON CONFLICT"].Expression.(clause.OnConflict)
@@ -43,7 +41,7 @@ func Create(db *gorm.DB) {
 		// are all columns in value the primary fields in schema only?
 		if hasConflict && funk.Contains(
 			funk.Map(values.Columns, func(c clause.Column) string { return c.Name }),
-			funk.Map(schema.PrimaryFields, func(field *gormSchema.Field) string { return field.DBName }),
+			funk.Map(stmtSchema.PrimaryFields, func(field *schema.Field) string { return field.DBName }),
 		) {
 			stmt.AddClauseIfNotExists(clauses.Merge{
 				Using: []clause.Interface{
@@ -65,7 +63,7 @@ func Create(db *gorm.DB) {
 						Tables: []clause.Table{{Name: db.Dialector.(Dialector).DummyTableName()}},
 					},
 				},
-				On: funk.Map(schema.PrimaryFields, func(field *gormSchema.Field) clause.Expression {
+				On: funk.Map(stmtSchema.PrimaryFields, func(field *schema.Field) clause.Expression {
 					return clause.Eq{
 						Column: clause.Column{Table: stmt.Schema.Table, Name: field.DBName},
 						Value:  clause.Column{Table: clauses.MergeDefaultExcludeName(), Name: field.DBName},
@@ -121,37 +119,4 @@ func Create(db *gorm.DB) {
 			}
 		}
 	}
-}
-
-func convertCustomType(val interface{}) interface{} {
-	rv := reflect.ValueOf(val)
-	ri := rv.Interface()
-	typeName := reflect.TypeOf(ri).Name()
-	if reflect.TypeOf(val).Kind() == reflect.Ptr {
-		if rv.IsNil() {
-			typeName = rv.Type().Elem().Name()
-		} else {
-			for rv.Kind() == reflect.Ptr {
-				rv = rv.Elem()
-			}
-			ri = rv.Interface()
-			typeName = reflect.TypeOf(ri).Name()
-		}
-	}
-	if typeName == "DeletedAt" {
-		// gorm.DeletedAt
-		if rv.IsZero() {
-			val = sql.NullTime{}
-		} else {
-			val = ri.(gorm.DeletedAt).Time
-		}
-	} else if m := rv.MethodByName("Time"); m.IsValid() && m.Type().NumIn() == 0 {
-		// custom time type
-		for _, result := range m.Call([]reflect.Value{}) {
-			if reflect.TypeOf(result.Interface()).Name() == "Time" {
-				val = result.Interface().(time.Time)
-			}
-		}
-	}
-	return val
 }

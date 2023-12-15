@@ -74,17 +74,24 @@ func convertCustomType(val interface{}) interface{} {
 		if rv.IsZero() {
 			val = sql.NullTime{}
 		} else {
-			val = ri.(gorm.DeletedAt).Time
+			val = getTimeValue(ri.(gorm.DeletedAt).Time)
 		}
 	} else if m := rv.MethodByName("Time"); m.IsValid() && m.Type().NumIn() == 0 {
 		// custom time type
 		for _, result := range m.Call([]reflect.Value{}) {
 			if reflect.TypeOf(result.Interface()).Name() == "Time" {
-				val = result.Interface().(time.Time)
+				val = getTimeValue(result.Interface().(time.Time))
 			}
 		}
 	}
 	return val
+}
+
+func getTimeValue(t time.Time) interface{} {
+	if t.IsZero() {
+		return sql.NullTime{}
+	}
+	return t
 }
 
 func (d Dialector) DummyTableName() string {

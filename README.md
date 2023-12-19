@@ -21,28 +21,52 @@ go get -d github.com/godoes/gorm-oracle
 
 ### Usage
 
-```shell
+```go
 package main
 
 import (
 	oracle "github.com/godoes/gorm-oracle"
+	goora "github.com/sijms/go-ora/v2"
 	"gorm.io/gorm"
 )
 
 func main() {
+	options := map[string]string{
+		"CONNECTION TIMEOUT": "90",
+		"LANGUAGE":           "SIMPLIFIED CHINESE",
+		"TERRITORY":          "CHINA",
+		"SSL":                "false",
+	}
 	// oracle://user:password@127.0.0.1:1521/service
-	url := oracle.BuildUrl("127.0.0.1", "1521", "service", "user", "password", nil)
-	db, err := gorm.Open(oracle.Open(url), &gorm.Config{})
+	url := oracle.BuildUrl("127.0.0.1", "1521", "service", "user", "password", options)
+	dialector := oracle.New(oracle.Config{
+		DSN:                 url,
+		IgnoreCase:          false, // query conditions are not case-sensitive
+		NamingCaseSensitive: true,  // whether naming is case-sensitive
+	})
+	db, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
 		// panic error or log error info
 	}
 
+	// set session parameters
+	if sqlDB, err := db.DB(); err == nil {
+		_ = goora.AddSessionParam(sqlDB, "TIME_ZONE", "+08:00")                                     // ALTER SESSION SET TIME_ZONE = '+08:00';
+		_ = goora.AddSessionParam(sqlDB, "NLS_DATE_FORMAT", "YYYY-MM-DD")                           // ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+		_ = goora.AddSessionParam(sqlDB, "NLS_TIME_FORMAT", "HH24:MI:SSXFF")                        // ALTER SESSION SET NLS_TIME_FORMAT = 'HH24:MI:SS.FF3';
+		_ = goora.AddSessionParam(sqlDB, "NLS_TIMESTAMP_FORMAT", "YYYY-MM-DD HH24:MI:SSXFF")        // ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3';
+		_ = goora.AddSessionParam(sqlDB, "NLS_TIME_TZ_FORMAT", "HH24:MI:SS.FF TZR")                 // ALTER SESSION SET NLS_TIME_TZ_FORMAT = 'HH24:MI:SS.FF3 TZR';
+		_ = goora.AddSessionParam(sqlDB, "NLS_TIMESTAMP_TZ_FORMAT", "YYYY-MM-DD HH24:MI:SSXFF TZR") // ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3 TZR';
+	}
+
 	// do somethings
 }
+
 ```
 
 ## Contributors
 
+<!--suppress HtmlDeprecatedAttribute -->
 <!-- readme: collaborators,dzwvip,jinzhu,miclle,stevefan1999-personal,zhangzetao,CengSin/- -start -->
 <table>
 <tr>

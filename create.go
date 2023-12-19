@@ -5,11 +5,9 @@ import (
 	"reflect"
 
 	"github.com/godoes/gorm-oracle/clauses"
-	"github.com/thoas/go-funk"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
-	"gorm.io/gorm/schema"
 )
 
 func Create(db *gorm.DB) {
@@ -38,37 +36,59 @@ func Create(db *gorm.DB) {
 			values                  = callbacks.ConvertToCreateValues(stmt)
 			onConflict, hasConflict = stmt.Clauses["ON CONFLICT"].Expression.(clause.OnConflict)
 		)
-		// are all columns in value the primary fields in schema only?
-		if hasConflict && funk.Contains(
-			funk.Map(values.Columns, func(c clause.Column) string { return c.Name }),
-			funk.Map(stmtSchema.PrimaryFields, func(field *schema.Field) string { return field.DBName }),
-		) {
+
+		if hasConflict {
+			if len(stmtSchema.PrimaryFields) > 0 {
+				// are all columns in value the primary fields in schema only?
+				columnsMap := map[string]bool{}
+				for _, column := range values.Columns {
+					columnsMap[column.Name] = true
+				}
+
+				for _, field := range stmtSchema.PrimaryFields {
+					if _, ok := columnsMap[field.DBName]; !ok {
+						hasConflict = false
+					}
+				}
+			} else {
+				hasConflict = false
+			}
+		}
+		if hasConflict {
 			stmt.AddClauseIfNotExists(clauses.Merge{
 				Using: []clause.Interface{
 					clause.Select{
-						Columns: funk.Map(values.Columns, func(column clause.Column) clause.Column {
+						Columns: func() (columns []clause.Column) {
 							// HACK: I can not come up with a better alternative for now
 							// I want to add a value to the list of variable and then capture the bind variable position as well
-							buf := bytes.NewBufferString("")
-							stmt.Vars = append(stmt.Vars, values.Values[0][funk.IndexOf(values.Columns, column)])
-							stmt.BindVarTo(buf, stmt, nil)
+							columns = values.Columns
+							for i, column := range columns {
+								buf := bytes.NewBufferString("")
+								stmt.Vars = append(stmt.Vars, values.Values[0][i])
+								stmt.BindVarTo(buf, stmt, nil)
 
-							column.Alias = column.Name
-							// then the captured bind var will be the name
-							column.Name = buf.String()
-							return column
-						}).([]clause.Column),
+								column.Alias = column.Name
+								// then the captured bind var will be the name
+								column.Name = buf.String()
+								columns[i] = column
+							}
+							return
+						}(),
 					},
 					clause.From{
 						Tables: []clause.Table{{Name: db.Dialector.(Dialector).DummyTableName()}},
 					},
 				},
-				On: funk.Map(stmtSchema.PrimaryFields, func(field *schema.Field) clause.Expression {
-					return clause.Eq{
-						Column: clause.Column{Table: stmt.Schema.Table, Name: field.DBName},
-						Value:  clause.Column{Table: clauses.MergeDefaultExcludeName(), Name: field.DBName},
+				On: func() (onExpr []clause.Expression) {
+					onExpr = make([]clause.Expression, len(stmtSchema.PrimaryFields))
+					for i, field := range stmtSchema.PrimaryFields {
+						onExpr[i] = clause.Eq{
+							Column: clause.Column{Table: stmt.Schema.Table, Name: field.DBName},
+							Value:  clause.Column{Table: clauses.MergeDefaultExcludeName(), Name: field.DBName},
+						}
 					}
-				}).([]clause.Expression),
+					return
+				}(),
 			})
 			stmt.AddClauseIfNotExists(clauses.WhenMatched{Set: onConflict.DoUpdates})
 			stmt.AddClauseIfNotExists(clauses.WhenNotMatched{Values: values})

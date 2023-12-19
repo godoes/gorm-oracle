@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/sijms/go-ora/v2"
-	"github.com/thoas/go-funk"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -300,17 +299,16 @@ func (d Dialector) QuoteTo(writer clause.Writer, str string) {
 var numericPlaceholder = regexp.MustCompile(`:(\d+)`)
 
 func (d Dialector) Explain(sql string, vars ...interface{}) string {
-	return logger.ExplainSQL(sql, numericPlaceholder, `'`, funk.Map(vars, func(v interface{}) interface{} {
-		switch v := v.(type) {
-		case bool:
-			if v {
-				return 1
+	for idx, v := range vars {
+		if b, ok := v.(bool); ok {
+			if b {
+				vars[idx] = 1
+			} else {
+				vars[idx] = 0
 			}
-			return 0
-		default:
-			return v
 		}
-	}).([]interface{})...)
+	}
+	return logger.ExplainSQL(sql, numericPlaceholder, `'`, vars...)
 }
 
 func (d Dialector) DataTypeOf(field *schema.Field) string {

@@ -10,7 +10,6 @@ cd
 :: & go get -d -u & echo.
 go get github.com/emirpasic/gods@latest
 go get github.com/sijms/go-ora/v2@latest
-go get github.com/thoas/go-funk@latest
 go get gorm.io/gorm@latest
 echo.
 

@@ -3,6 +3,7 @@ package oracle
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"gorm.io/gorm"
@@ -329,13 +330,13 @@ func (m Migrator) TryQuotifyReservedWords(values ...interface{}) error {
 		if err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
 			for idx, v := range stmt.Schema.DBNames {
 				if IsReservedWord(v) {
-					stmt.Schema.DBNames[idx] = fmt.Sprintf(`"%s"`, v)
+					stmt.Schema.DBNames[idx] = strconv.Quote(v)
 				}
 			}
 
 			for _, v := range stmt.Schema.Fields {
 				if IsReservedWord(v.DBName) {
-					v.DBName = fmt.Sprintf(`"%s"`, v.DBName)
+					v.DBName = strconv.Quote(v.DBName)
 				}
 			}
 			return nil

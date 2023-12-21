@@ -9,7 +9,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/sijms/go-ora/v2"
@@ -234,16 +233,7 @@ func (d Dialector) DefaultValueOf(*schema.Field) clause.Expression {
 	return clause.Expr{SQL: "VALUES (DEFAULT)"}
 }
 
-var onceReservedWords sync.Once
-
 func (d Dialector) Migrator(db *gorm.DB) gorm.Migrator {
-	onceReservedWords.Do(func() {
-		var reservedWords []interface{}
-		db.Table("V$RESERVED_WORDS").Not("REGEXP_LIKE(KEYWORD, ?)", "^[[:punct:]]+$").Pluck("KEYWORD", &reservedWords)
-		if len(reservedWords) > 0 {
-			ReservedWords.Add(reservedWords...)
-		}
-	})
 	return Migrator{
 		Migrator: migrator.Migrator{
 			Config: migrator.Config{

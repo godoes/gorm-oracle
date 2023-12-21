@@ -119,8 +119,8 @@ func main() {
 
 [MIT license](./LICENSE)
 
-- Copyright (c) 2022-present [iTanken](https://github.com/iTanken)
-- Copyright (c) 2022 [dzwvip](https://github.com/dzwvip)
-- Copyright (c) 2020 [CengSin](https://github.com/CengSin)
-- Copyright (c) 2020 [Steve Fan](https://github.com/stevefan1999-personal)
 - Copyright (c) 2020 [Jinzhu](https://github.com/jinzhu)
+- Copyright (c) 2020 [Steve Fan](https://github.com/stevefan1999-personal)
+- Copyright (c) 2020 [CengSin](https://github.com/CengSin)
+- Copyright (c) 2022 [dzwvip](https://github.com/dzwvip)
+- Copyright (c) 2022-present [iTanken](https://github.com/iTanken)

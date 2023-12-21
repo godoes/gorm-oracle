@@ -6,14 +6,15 @@ import (
 	"github.com/emirpasic/gods/sets/hashset"
 )
 
-var ReservedWords = hashset.New()
+var ReservedWords = hashset.New(func() []interface{} {
+	reservedWords := make([]interface{}, len(ReservedWordsList))
+	for i, word := range ReservedWordsList {
+		reservedWords[i] = word
+	}
+	return reservedWords
+}()...)
 
 func IsReservedWord(v string) bool {
-	if ReservedWords.Empty() {
-		for _, word := range ReservedWordsList {
-			ReservedWords.Add(word)
-		}
-	}
 	return ReservedWords.Contains(strings.ToUpper(v))
 }
 
@@ -29,6 +30,6 @@ var ReservedWordsList = []string{
 	"NVARCHAR2", "OF", "OLAP", "OLAP_DML_EXPRESSION", "ON", "ONLY", "OPERATOR", "OR", "ORDER", "OVER", "OVERFLOW",
 	"PARALLEL", "PARENT", "PLSQL", "PRUNE", "RAW", "RELATIVE", "ROOT_ANCESTOR", "ROWID", "SCN", "SECOND", "SELF",
 	"SERIAL", "SET", "SOLVE", "SOME", "SORT", "SPEC", "SUM", "SYNCH", "TEXT_MEASURE", "THEN", "TIME", "TIMESTAMP",
-	"TO", "UID", "UNBRANCH", "UPDATE", "USING", "VALIDATE", "VALUES", "VARCHAR2", "WHEN", "WHERE", "WITHIN", "WITH",
-	"YEAR", "ZERO", "ZONE",
+	"TO", "UNBRANCH", "UPDATE", "USING", "VALIDATE", "VALUES", "VARCHAR2", "WHEN", "WHERE", "WITHIN", "WITH", "YEAR",
+	"ZERO", "ZONE",
 }

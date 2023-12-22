@@ -50,6 +50,31 @@ func (m Migrator) AutoMigrate(dst ...interface{}) error {
 	return nil
 }
 
+// FullDataTypeOf returns field's db full data type
+func (m Migrator) FullDataTypeOf(field *schema.Field) (expr clause.Expr) {
+	expr.SQL = m.DataTypeOf(field)
+
+	if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
+		if field.DefaultValueInterface != nil {
+			defaultStmt := &gorm.Statement{Vars: []interface{}{field.DefaultValueInterface}}
+			m.Dialector.BindVarTo(defaultStmt, defaultStmt, field.DefaultValueInterface)
+			expr.SQL += " DEFAULT " + m.Dialector.Explain(defaultStmt.SQL.String(), field.DefaultValueInterface)
+		} else if field.DefaultValue != "(-)" {
+			expr.SQL += " DEFAULT " + field.DefaultValue
+		}
+	}
+
+	if field.NotNull {
+		expr.SQL += " NOT NULL"
+	}
+
+	if field.Unique {
+		expr.SQL += " UNIQUE"
+	}
+
+	return
+}
+
 func (m Migrator) CurrentDatabase() (name string) {
 	_ = m.DB.Raw(
 		fmt.Sprintf(`SELECT ORA_DATABASE_NAME as "Current Database" FROM %s`, m.Dialector.(Dialector).DummyTableName()),
@@ -217,13 +242,6 @@ func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (ex
 	} else {
 		_ = m.DB.Raw("SELECT NULLABLE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field.DBName).Row().Scan(&nullable)
 	}
-	if field.NotNull && nullable == "Y" {
-		expr.SQL += " NOT NULL"
-	}
-
-	if field.Unique {
-		expr.SQL += " UNIQUE"
-	}
 
 	if field.HasDefaultValue && (field.DefaultValueInterface != nil || field.DefaultValue != "") {
 		if field.DefaultValueInterface != nil {
@@ -235,6 +253,12 @@ func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (ex
 		}
 	}
 
+	if field.NotNull && nullable == "Y" {
+		expr.SQL += " NOT NULL"
+	}
+	if field.Unique {
+		expr.SQL += " UNIQUE"
+	}
 	return
 }
 

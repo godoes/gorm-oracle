@@ -251,7 +251,7 @@ func (d Dialector) BindVarTo(writer clause.Writer, stmt *gorm.Statement, _ inter
 }
 
 func (d Dialector) QuoteTo(writer clause.Writer, str string) {
-	if d.NamingCaseSensitive {
+	if d.NamingCaseSensitive && str != "" {
 		var (
 			underQuoted, selfQuoted bool
 			continuousBacktick      int8

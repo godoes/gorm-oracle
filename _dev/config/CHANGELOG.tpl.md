@@ -1,6 +1,5 @@
 {{ if .Versions -}}
 {{ if .Unreleased.CommitGroups -}}
-<a name="unreleased"></a>
 
 ## ⭐ [最新变更]({{ .Info.RepositoryURL }}/compare/{{ $latest := index .Versions 0 }}{{ $latest.Tag.Name }}...main)
 
@@ -60,8 +59,7 @@
 {{ end -}}
 {{ end -}}
 
-{{ range .Versions }}{{ $currTagName := .Tag.Name }}<a name="{{ $currTagName }}"></a>
-
+{{ range .Versions -}}
 ## 🔖 {{ if .Tag.Previous -}}
 [{{ .Tag.Name }}]({{ $.Info.RepositoryURL }}/compare/{{ .Tag.Previous.Name }}...{{ .Tag.Name }})
 {{- else }}{{ .Tag.Name }}{{ end }} - {{ datetime "2006-01-02" .Tag.Date }}
@@ -99,8 +97,8 @@
 {{- if not (contains .Subject "[ci skip]") -}}
 {{- if not (contains .Subject "[skip ci]") -}}
 {{- if not (hasPrefix .Subject "Merge pull request ") -}}
-{{- if not (hasPrefix .Subject "Merge remote-tracking ") -}}
-{{- /* SKIPPING RULES - END */ -}}
+{{- if not (hasPrefix .Subject "Merge remote-tracking ") }}
+{{/* SKIPPING RULES - END */ -}}
 - [{{ if .Type }}`{{ .Type }}`{{ end }}{{ .Subject }}]({{ $.Info.RepositoryURL }}/commit/{{ .Hash.Short }})
 {{- if .TrimmedBody }}
   <blockquote>

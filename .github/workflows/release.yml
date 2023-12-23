@@ -15,11 +15,14 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: 'stable'
+          cache: false
 
       - name: Get Tag Name
         id: tag
@@ -28,12 +31,13 @@ jobs:
       - name: Generate Changelog
         id: gen_changelog
         run: |
-          go run github.com/git-chglog/git-chglog/cmd/git-chglog@v0.15.4 \
-            --config ./_dev/config/chglog.config.yml --output CHANGELOG.md \
-            v${{ steps.tag.outputs.tagName }}
+          config=./_dev/config/chglog.config.yml
+          tagName=v${{ steps.tag.outputs.tagName }}
+          go run github.com/git-chglog/git-chglog/cmd/git-chglog@latest --config $config $tagName
+          go run github.com/git-chglog/git-chglog/cmd/git-chglog@latest --config $config $tagName > changelog.md
 
       - name: Create Release
         uses: ncipollo/release-action@v1
         with:
-          bodyFile: CHANGELOG.md
+          bodyFile: changelog.md
           token: ${{ secrets.GITHUB_TOKEN }}

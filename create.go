@@ -2,7 +2,6 @@ package oracle
 
 import (
 	"bytes"
-	"reflect"
 
 	"github.com/godoes/gorm-oracle/clauses"
 	"gorm.io/gorm"
@@ -101,7 +100,7 @@ func Create(db *gorm.DB) {
 		}
 
 		if !db.DryRun && db.Error == nil {
-			for idx, value := range values.Values {
+			for _, value := range values.Values {
 				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
 				for idx, val := range value {
 					switch v := val.(type) {
@@ -128,13 +127,6 @@ func Create(db *gorm.DB) {
 				if db.AddError(err) == nil {
 					// success
 					db.RowsAffected, _ = result.RowsAffected()
-
-					insertTo := stmt.ReflectValue
-					switch insertTo.Kind() {
-					case reflect.Slice, reflect.Array:
-						insertTo = insertTo.Index(idx)
-					default:
-					}
 				}
 			}
 		}

@@ -3,6 +3,7 @@ package oracle
 import (
 	"log"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -63,13 +64,44 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 func openConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 	dsn := os.Getenv("GORM_ORA_DSN")
 	if dsn == "" {
-		return
+		server := os.Getenv("GORM_ORA_SERVER")
+		port, _ := strconv.Atoi(os.Getenv("GORM_ORA_PORT"))
+		if server == "" || port < 1 {
+			return
+		}
+
+		language := os.Getenv("GORM_ORA_LANG")
+		if language == "" {
+			language = "SIMPLIFIED CHINESE"
+		}
+		territory := os.Getenv("GORM_ORA_TERRITORY")
+		if territory == "" {
+			territory = "CHINA"
+		}
+
+		dsn = BuildUrl(server, port,
+			os.Getenv("GORM_ORA_SID"),
+			os.Getenv("GORM_ORA_USER"),
+			os.Getenv("GORM_ORA_PASS"),
+			map[string]string{
+				"CONNECTION TIMEOUT": "90",
+				"LANGUAGE":           language,
+				"TERRITORY":          territory,
+				"SSL":                "false",
+			})
 	}
+	if wait := os.Getenv("GORM_ORA_WAIT_MIN"); wait != "" {
+		if min, e := strconv.Atoi(wait); e == nil {
+			log.Println("wait for oracle database initialization to complete...")
+			time.Sleep(time.Duration(min) * time.Minute)
+		}
+	}
+
 	db, err = gorm.Open(New(Config{
 		DSN:                 dsn,
 		IgnoreCase:          ignoreCase,
 		NamingCaseSensitive: namingCase,
-	}))
+	}), &gorm.Config{})
 	if db != nil && err == nil {
 		log.Println("open oracle database connection success!")
 	}

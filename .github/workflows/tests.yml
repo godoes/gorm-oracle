@@ -1,0 +1,58 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: tests
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      oracle:
+        image: truevoly/oracle-12c
+        env:
+          TZ: Asia/Shanghai
+          WEB_CONSOLE: false
+        ports:
+          - 30256:1521
+#        volumes:
+#          - /data/oracle_test:/u01/app/oracle
+        options: >-
+          --restart=always
+          --privileged=true
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: "1.20"
+
+    - name: Tidy
+      run: go mod tidy
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Check oracle port
+      run: |
+        if ss -tln | grep -q ":30256 "; then
+          echo "oracle 服务端口号正常！"
+        else
+          echo "oracle 服务端口号异常！"
+        fi
+        go run github.com/cloverstd/tcping@latest 127.0.0.1:30256
+
+    - name: Test
+      env:
+        GORM_ORA_DSN: "oracle://system:oracle@localhost:30256/xe?LANGUAGE=SIMPLIFIED+CHINESE&TERRITORY=CHINA"
+        GORM_ORA_WAIT_MIN: 5 # wait for the database initialization to complete
+      run: go test -v ./...

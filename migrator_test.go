@@ -1,7 +1,6 @@
 package oracle
 
 import (
-	"errors"
 	"os"
 	"testing"
 	"time"
@@ -11,7 +10,9 @@ import (
 
 func TestMigrator_AutoMigrate(t *testing.T) {
 	db, err := openConnection(true, true)
-	if err != nil {
+	if db == nil && err == nil {
+		return
+	} else if err != nil {
 		t.Fatal(err)
 	}
 
@@ -28,6 +29,7 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 		{name: "TestTableUser", args: args{models: []interface{}{TestTableUser{}}, comments: []string{"用户信息表"}}},
 		{name: "TestTableUserDrop", args: args{drop: true, models: []interface{}{TestTableUser{}}, comments: []string{"用户信息表"}}},
 		{name: "TestTableUserAddColumn", args: args{models: []interface{}{TestTableUserAddColumn{}}, comments: []string{"用户信息表"}}},
+		{name: "TestTableUserMigrateColumn", args: args{models: []interface{}{TestTableUserMigrateColumn{}}, comments: []string{"用户信息表"}}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -59,7 +61,6 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 func openConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 	dsn := os.Getenv("GORM_ORA_DSN")
 	if dsn == "" {
-		err = errors.New("dsn undefined")
 		return
 	}
 	db, err = gorm.Open(New(Config{
@@ -102,5 +103,15 @@ type TestTableUserAddColumn struct {
 }
 
 func (TestTableUserAddColumn) TableName() string {
+	return "test_user"
+}
+
+type TestTableUserMigrateColumn struct {
+	TestTableUser
+
+	AddNewColumn string `gorm:"column:add_new_column;type:varchar(100);comment:测试添加新字段"`
+}
+
+func (TestTableUserMigrateColumn) TableName() string {
 	return "test_user"
 }

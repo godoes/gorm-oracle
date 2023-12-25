@@ -168,8 +168,8 @@ func (m Migrator) HasTable(value interface{}) bool {
 
 	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
-			ownertable := strings.Split(stmt.Schema.Table, ".")
-			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TABLES WHERE OWNER = ?  and  TABLE_NAME = ?", ownertable[0], ownertable[1]).Row().Scan(&count)
+			ownerTable := strings.Split(stmt.Schema.Table, ".")
+			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TABLES WHERE OWNER = ?  and  TABLE_NAME = ?", ownerTable[0], ownerTable[1]).Row().Scan(&count)
 		} else {
 			return m.DB.Raw("SELECT COUNT(*) FROM USER_TABLES WHERE TABLE_NAME = ?", stmt.Table).Row().Scan(&count)
 		}
@@ -284,8 +284,8 @@ func (m Migrator) HasColumn(value interface{}, field string) bool {
 	var count int64
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
-			ownertable := strings.Split(stmt.Schema.Table, ".")
-			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field).Row().Scan(&count)
+			ownerTable := strings.Split(stmt.Schema.Table, ".")
+			return m.DB.Raw("SELECT COUNT(*) FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownerTable[0], ownerTable[1], field).Row().Scan(&count)
 		} else {
 			return m.DB.Raw("SELECT COUNT(*) FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field).Row().Scan(&count)
 		}
@@ -293,13 +293,46 @@ func (m Migrator) HasColumn(value interface{}, field string) bool {
 	}) == nil && count > 0
 }
 
+// MigrateColumn migrate column
+func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnType gorm.ColumnType) (err error) {
+	if err = m.Migrator.MigrateColumn(value, field, columnType); err != nil {
+		return
+	}
+
+	return m.RunWithValue(value, func(stmt *gorm.Statement) (err error) {
+		var description string
+		if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
+			ownerTable := strings.Split(stmt.Schema.Table, ".")
+			m.DB.Raw(
+				"SELECT COMMENTS FROM ALL_COL_COMMENTS WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?",
+				ownerTable[0], ownerTable[1], field.DBName,
+			).Scan(&description)
+		} else {
+			m.DB.Raw(
+				"SELECT COMMENTS FROM USER_COL_COMMENTS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
+				stmt.Table, field.DBName,
+			).Scan(&description)
+		}
+		if comment := field.Comment; comment != "" && comment != description {
+			if err = m.DB.Exec(
+				"COMMENT ON COLUMN ?.? IS ?",
+				m.CurrentTable(stmt), clause.Column{Name: field.DBName},
+				gorm.Expr(m.Migrator.Dialector.Explain(":1", comment)),
+			).Error; err != nil {
+				return
+			}
+		}
+		return
+	})
+}
+
 func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (expr clause.Expr) {
 	expr.SQL = m.DataTypeOf(field)
 
 	var nullable = ""
 	if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
-		ownertable := strings.Split(stmt.Schema.Table, ".")
-		_ = m.DB.Raw("SELECT NULLABLE FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownertable[0], ownertable[1], field.DBName).Row().Scan(&nullable)
+		ownerTable := strings.Split(stmt.Schema.Table, ".")
+		_ = m.DB.Raw("SELECT NULLABLE FROM ALL_TAB_COLUMNS WHERE OWNER = ?  and TABLE_NAME = ? AND COLUMN_NAME = ?", ownerTable[0], ownerTable[1], field.DBName).Row().Scan(&nullable)
 	} else {
 		_ = m.DB.Raw("SELECT NULLABLE FROM USER_TAB_COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?", stmt.Table, field.DBName).Row().Scan(&nullable)
 	}

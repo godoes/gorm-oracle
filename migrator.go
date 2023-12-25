@@ -303,15 +303,15 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 		var description string
 		if stmt.Schema != nil && strings.Contains(stmt.Schema.Table, ".") {
 			ownerTable := strings.Split(stmt.Schema.Table, ".")
-			m.DB.Raw(
+			_ = m.DB.Raw(
 				"SELECT COMMENTS FROM ALL_COL_COMMENTS WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?",
 				ownerTable[0], ownerTable[1], field.DBName,
-			).Scan(&description)
+			).Row().Scan(&description)
 		} else {
-			m.DB.Raw(
+			_ = m.DB.Raw(
 				"SELECT COMMENTS FROM USER_COL_COMMENTS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?",
 				stmt.Table, field.DBName,
-			).Scan(&description)
+			).Row().Scan(&description)
 		}
 		if comment := field.Comment; comment != "" && comment != description {
 			if err = m.DB.Exec(

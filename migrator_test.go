@@ -1,6 +1,7 @@
 package oracle
 
 import (
+	"log"
 	"os"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 	}{
 		{name: "TestTableUser", args: args{models: []interface{}{TestTableUser{}}, comments: []string{"用户信息表"}}},
 		{name: "TestTableUserDrop", args: args{drop: true, models: []interface{}{TestTableUser{}}, comments: []string{"用户信息表"}}},
+		{name: "TestTableUserNoComments", args: args{drop: true, models: []interface{}{TestTableUserNoComments{}}, comments: []string{"用户信息表"}}},
 		{name: "TestTableUserAddColumn", args: args{models: []interface{}{TestTableUserAddColumn{}}, comments: []string{"用户信息表"}}},
 		{name: "TestTableUserMigrateColumn", args: args{models: []interface{}{TestTableUserMigrateColumn{}}, comments: []string{"用户信息表"}}},
 	}
@@ -68,6 +70,9 @@ func openConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 		IgnoreCase:          ignoreCase,
 		NamingCaseSensitive: namingCase,
 	}))
+	if db != nil && err == nil {
+		log.Println("open oracle database connection success!")
+	}
 	return
 }
 
@@ -93,6 +98,30 @@ type TestTableUser struct {
 }
 
 func (TestTableUser) TableName() string {
+	return "test_user"
+}
+
+type TestTableUserNoComments struct {
+	ID   uint64 `gorm:"column:id;size:64;not null;autoIncrement:true;autoIncrementIncrement:1;primaryKey" json:"id"`
+	UID  string `gorm:"column:name;type:varchar(50)" json:"uid"`
+	Name string `gorm:"column:name;size:50" json:"name"`
+
+	Account  string `gorm:"column:account;type:varchar(50)" json:"account"`
+	Password string `gorm:"column:password;type:varchar(512)" json:"password"`
+
+	Email       string `gorm:"column:email;type:varchar(128)" json:"email"`
+	PhoneNumber string `gorm:"column:phone_number;type:varchar(15)" json:"phoneNumber"`
+
+	Sex      string    `gorm:"column:sex;type:char(1)" json:"sex"`
+	Birthday time.Time `gorm:"column:birthday" json:"birthday"`
+
+	UserType int `gorm:"column:user_type;size:8" json:"userType"`
+
+	Enabled bool   `gorm:"column:enabled" json:"enabled"`
+	Remark  string `gorm:"column:remark;size:1024" json:"remark"`
+}
+
+func (TestTableUserNoComments) TableName() string {
 	return "test_user"
 }
 

@@ -27,6 +27,7 @@ func (m Migrator) AutoMigrate(dst ...interface{}) error {
 	if err := m.Migrator.AutoMigrate(dst...); err != nil {
 		return err
 	}
+	// set table comment
 	if tableComments, ok := m.DB.Get("gorm:table_comments"); ok {
 		var comments []string
 		switch c := tableComments.(type) {
@@ -40,9 +41,11 @@ func (m Migrator) AutoMigrate(dst ...interface{}) error {
 		for i := 0; i < len(dst) && i < len(comments); i++ {
 			value := dst[i]
 			tx := m.DB.Session(&gorm.Session{})
-			comment := strings.ReplaceAll(comments[i], "'", "''")
 			if err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
-				return tx.Exec(fmt.Sprintf("COMMENT ON TABLE ? IS '%s'", comment), m.CurrentTable(stmt)).Error
+				return tx.Exec(
+					"COMMENT ON TABLE ? IS ?", m.CurrentTable(stmt),
+					gorm.Expr(m.Migrator.Dialector.Explain(":1", comments[i])),
+				).Error
 			}); err != nil {
 				return err
 			}
@@ -102,12 +105,45 @@ func (m Migrator) GetTypeAliases(databaseTypeName string) (types []string) {
 	return
 }
 
-func (m Migrator) CreateTable(values ...interface{}) error {
+func (m Migrator) CreateTable(values ...interface{}) (err error) {
 	for _, value := range values {
 		_ = m.TryQuotifyReservedWords(value)
 		_ = m.TryRemoveOnUpdate(value)
 	}
-	return m.Migrator.CreateTable(values...)
+	if err = m.Migrator.CreateTable(values...); err != nil {
+		return
+	}
+	// set column comment
+	for _, value := range m.ReorderModels(values, false) {
+		if err = m.RunWithValue(value, func(stmt *gorm.Statement) (err error) {
+			if stmt.Schema != nil {
+				for _, fieldName := range stmt.Schema.DBNames {
+					field := stmt.Schema.FieldsByDBName[fieldName]
+					if err = m.setCommentForColumn(field, stmt); err != nil {
+						return
+					}
+				}
+			}
+			return
+		}); err != nil {
+			return
+		}
+	}
+	return
+}
+
+func (m Migrator) setCommentForColumn(field *schema.Field, stmt *gorm.Statement) (err error) {
+	if field == nil || stmt == nil {
+		return
+	}
+	if comment := field.Comment; comment != "" {
+		err = m.DB.Exec(
+			"COMMENT ON COLUMN ?.? IS ?",
+			m.CurrentTable(stmt), clause.Column{Name: field.DBName},
+			gorm.Expr(m.Migrator.Dialector.Explain(":1", field.Comment)),
+		).Error
+	}
+	return
 }
 
 //goland:noinspection SqlNoDataSourceInspection
@@ -204,8 +240,21 @@ func (m Migrator) RenameTable(oldName, newName interface{}) (err error) {
 	).Error
 }
 
-func (m Migrator) AddColumn(value interface{}, field string) error {
-	return m.Migrator.AddColumn(value, field)
+// AddColumn create "name" column for value
+func (m Migrator) AddColumn(value interface{}, name string) (err error) {
+	if err = m.Migrator.AddColumn(value, name); err != nil {
+		return err
+	}
+	// set column comment
+	err = m.RunWithValue(value, func(stmt *gorm.Statement) (err error) {
+		if field := stmt.Schema.LookUpField(name); field != nil {
+			if err = m.setCommentForColumn(field, stmt); err != nil {
+				return
+			}
+		}
+		return
+	})
+	return
 }
 
 func (m Migrator) DropColumn(value interface{}, name string) error {

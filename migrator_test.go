@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func TestMigrator_AutoMigrate(t *testing.T) {
@@ -97,11 +98,20 @@ func openConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 		}
 	}
 
+	logWriter := new(log.Logger)
+	logWriter.SetOutput(os.Stdout)
 	db, err = gorm.Open(New(Config{
 		DSN:                 dsn,
 		IgnoreCase:          ignoreCase,
 		NamingCaseSensitive: namingCase,
-	}), &gorm.Config{})
+	}), &gorm.Config{
+		Logger: logger.New(
+			logWriter,
+			logger.Config{LogLevel: logger.Info},
+		),
+		DisableForeignKeyConstraintWhenMigrating: false,
+		IgnoreRelationshipsWhenMigrating:         false,
+	})
 	if db != nil && err == nil {
 		log.Println("open oracle database connection success!")
 	}
@@ -170,7 +180,8 @@ func (TestTableUserAddColumn) TableName() string {
 type TestTableUserMigrateColumn struct {
 	TestTableUser
 
-	AddNewColumn string `gorm:"column:add_new_column;type:varchar(100);comment:测试添加新字段"`
+	AddNewColumn       string `gorm:"column:add_new_column;type:varchar(100);comment:测试添加新字段"`
+	CommentSingleQuote string `gorm:"column:comment_single_quote;comment:注释中存在单引号'[']'"`
 }
 
 func (TestTableUserMigrateColumn) TableName() string {

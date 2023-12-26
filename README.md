@@ -64,6 +64,26 @@ func main() {
 
 ```
 
+## Questions
+
+<details>
+<summary>ORA-01000: 超出打开游标的最大数</summary>
+
+> ORA-00604: 递归 SQL 级别 1 出现错误
+> 
+> ORA-01000: 超出打开游标的最大数
+
+```shell
+show parameter OPEN_CURSORS;
+```
+
+```sql
+alter system set OPEN_CURSORS = 1000; -- or bigger
+commit;
+```
+
+</details>
+
 ## Contributors
 
 <!--suppress HtmlDeprecatedAttribute -->

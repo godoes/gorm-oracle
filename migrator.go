@@ -42,10 +42,7 @@ func (m Migrator) AutoMigrate(dst ...interface{}) error {
 			value := dst[i]
 			tx := m.DB.Session(&gorm.Session{})
 			if err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
-				return tx.Exec(
-					"COMMENT ON TABLE ? IS ?", m.CurrentTable(stmt),
-					gorm.Expr(m.Migrator.Dialector.Explain(":1", comments[i])),
-				).Error
+				return tx.Exec("COMMENT ON TABLE ? IS '?'", m.CurrentTable(stmt), GetStringExpr(comments[i])).Error
 			}); err != nil {
 				return err
 			}
@@ -133,16 +130,13 @@ func (m Migrator) CreateTable(values ...interface{}) (err error) {
 }
 
 func (m Migrator) setCommentForColumn(field *schema.Field, stmt *gorm.Statement) (err error) {
-	if field == nil || stmt == nil {
+	if field == nil || stmt == nil || field.Comment == "" {
 		return
 	}
-	if comment := field.Comment; comment != "" {
-		err = m.DB.Exec(
-			"COMMENT ON COLUMN ?.? IS ?",
-			m.CurrentTable(stmt), clause.Column{Name: field.DBName},
-			gorm.Expr(m.Migrator.Dialector.Explain(":1", field.Comment)),
-		).Error
-	}
+	table := m.CurrentTable(stmt)
+	column := clause.Column{Name: field.DBName}
+	comment := GetStringExpr(field.Comment)
+	err = m.DB.Exec("COMMENT ON COLUMN ?.? IS '?'", table, column, comment).Error
 	return
 }
 
@@ -314,11 +308,7 @@ func (m Migrator) MigrateColumn(value interface{}, field *schema.Field, columnTy
 			).Row().Scan(&description)
 		}
 		if comment := field.Comment; comment != "" && comment != description {
-			if err = m.DB.Exec(
-				"COMMENT ON COLUMN ?.? IS ?",
-				m.CurrentTable(stmt), clause.Column{Name: field.DBName},
-				gorm.Expr(m.Migrator.Dialector.Explain(":1", comment)),
-			).Error; err != nil {
+			if err = m.setCommentForColumn(field, stmt); err != nil {
 				return
 			}
 		}

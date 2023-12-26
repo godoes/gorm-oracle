@@ -55,6 +55,34 @@ func BuildUrl(server string, port int, service, user, password string, options m
 	return go_ora.BuildUrl(server, port, service, user, password, options)
 }
 
+// GetStringExpr replace single quotes in the string with two single quotes
+// and return the expression for the string value
+//
+//	quotes : if the SQL placeholder is ? then pass true, if it is '?' then do not pass or pass false.
+func GetStringExpr(value string, quotes ...bool) clause.Expr {
+	if len(quotes) > 0 && quotes[0] {
+		if strings.Contains(value, "'") {
+			// escape single quotes
+			if !strings.Contains(value, "]'") {
+				value = fmt.Sprintf("q'[%s]'", value)
+			} else if !strings.Contains(value, "}'") {
+				value = fmt.Sprintf("q'{%s}'", value)
+			} else if !strings.Contains(value, ">'") {
+				value = fmt.Sprintf("q'<%s>'", value)
+			} else if !strings.Contains(value, ")'") {
+				value = fmt.Sprintf("q'(%s)'", value)
+			} else {
+				value = fmt.Sprintf("'%s'", strings.ReplaceAll(value, "'", "''"))
+			}
+		} else {
+			value = fmt.Sprintf("'%s'", value)
+		}
+	} else {
+		value = strings.ReplaceAll(value, "'", "''")
+	}
+	return gorm.Expr(value)
+}
+
 func convertCustomType(val interface{}) interface{} {
 	rv := reflect.ValueOf(val)
 	ri := rv.Interface()

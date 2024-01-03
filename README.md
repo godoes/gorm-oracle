@@ -44,7 +44,17 @@ func main() {
 		IgnoreCase:          false, // query conditions are not case-sensitive
 		NamingCaseSensitive: true,  // whether naming is case-sensitive
 	})
-	db, err := gorm.Open(dialector, &gorm.Config{})
+	db, err := gorm.Open(dialector, &gorm.Config{
+		SkipDefaultTransaction:                   true, // 是否禁用默认在事务中执行单次创建、更新、删除操作
+		DisableForeignKeyConstraintWhenMigrating: true, // 是否禁止在自动迁移或创建表时自动创建外键约束
+		// 自定义命名策略
+		NamingStrategy: schema.NamingStrategy{
+			NoLowerCase:         true, // 是否不自动转换小写表名
+			IdentifierMaxLength: 30,   // Oracle: 30, PostgreSQL:63, MySQL: 64, SQL Server、SQLite、DM: 128
+		},
+		PrepareStmt:     false, // 创建并缓存预编译语句，启用后可能会报 ORA-01002 错误
+		CreateBatchSize: 50,    // 插入数据默认批处理大小
+	})
 	if err != nil {
 		// panic error or log error info
 	}
@@ -83,6 +93,29 @@ show parameter OPEN_CURSORS;
 ```sql
 alter system set OPEN_CURSORS = 1000; -- or bigger
 commit;
+```
+
+</details>
+
+<details>
+<summary>ORA-01002: 提取违反顺序</summary>
+
+> 如果重复执行同一查询，第一次查询成功，第二次报 `ORA-01002` 错误，可能是因为启用了 `PrepareStmt`，关闭此配置即可。
+
+推荐配置：
+
+```go
+&gorm.Config{
+    SkipDefaultTransaction:                   true, // 是否禁用默认在事务中执行单次创建、更新、删除操作
+    DisableForeignKeyConstraintWhenMigrating: true, // 是否禁止在自动迁移或创建表时自动创建外键约束
+    // 自定义命名策略
+    NamingStrategy: schema.NamingStrategy{
+        NoLowerCase:         true, // 是否不自动转换小写表名
+        IdentifierMaxLength: 30,   // Oracle: 30, PostgreSQL:63, MySQL: 64, SQL Server、SQLite、DM: 128
+    },
+    PrepareStmt:     false, // 创建并缓存预编译语句，启用后可能会报 ORA-01002 错误
+    CreateBatchSize: 50,    // 插入数据默认批处理大小
+}
 ```
 
 </details>

@@ -75,7 +75,7 @@ func Create(db *gorm.DB) {
 						}(),
 					},
 					clause.From{
-						Tables: []clause.Table{{Name: db.Dialector.(Dialector).DummyTableName()}},
+						Tables: []clause.Table{{Name: db.Dialector.(*Dialector).DummyTableName()}},
 					},
 				},
 				On: func() (onExpr []clause.Expression) {

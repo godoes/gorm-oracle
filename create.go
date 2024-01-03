@@ -103,6 +103,7 @@ func Create(db *gorm.DB) {
 			for _, value := range values.Values {
 				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
 				for idx, val := range value {
+					val = ptrDereference(val)
 					switch v := val.(type) {
 					case bool:
 						if v {

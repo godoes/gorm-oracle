@@ -153,6 +153,25 @@ func convertCustomType(val interface{}) interface{} {
 	return val
 }
 
+func ptrDereference(obj interface{}) (value interface{}) {
+	if obj == nil {
+		return obj
+	}
+	if t := reflect.TypeOf(obj); t.Kind() != reflect.Ptr {
+		return obj
+	}
+
+	v := reflect.ValueOf(obj)
+	for v.Kind() == reflect.Ptr && !v.IsNil() {
+		v = v.Elem()
+	}
+	if !v.IsValid() || v.Kind() == reflect.Ptr && v.IsNil() {
+		return obj
+	}
+	value = v.Interface()
+	return
+}
+
 func getTimeValue(t time.Time) interface{} {
 	if t.IsZero() {
 		return sql.NullTime{}
@@ -371,7 +390,7 @@ var numericPlaceholder = regexp.MustCompile(`:(\d+)`)
 
 func (d Dialector) Explain(sql string, vars ...interface{}) string {
 	for idx, v := range vars {
-		if b, ok := v.(bool); ok {
+		if b, ok := ptrDereference(v).(bool); ok {
 			if b {
 				vars[idx] = 1
 			} else {

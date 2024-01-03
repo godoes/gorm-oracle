@@ -51,12 +51,14 @@ func main() {
 
 	// set session parameters
 	if sqlDB, err := db.DB(); err == nil {
-		_ = goora.AddSessionParam(sqlDB, "TIME_ZONE", "+08:00")                                     // ALTER SESSION SET TIME_ZONE = '+08:00';
-		_ = goora.AddSessionParam(sqlDB, "NLS_DATE_FORMAT", "YYYY-MM-DD")                           // ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
-		_ = goora.AddSessionParam(sqlDB, "NLS_TIME_FORMAT", "HH24:MI:SSXFF")                        // ALTER SESSION SET NLS_TIME_FORMAT = 'HH24:MI:SS.FF3';
-		_ = goora.AddSessionParam(sqlDB, "NLS_TIMESTAMP_FORMAT", "YYYY-MM-DD HH24:MI:SSXFF")        // ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3';
-		_ = goora.AddSessionParam(sqlDB, "NLS_TIME_TZ_FORMAT", "HH24:MI:SS.FF TZR")                 // ALTER SESSION SET NLS_TIME_TZ_FORMAT = 'HH24:MI:SS.FF3 TZR';
-		_ = goora.AddSessionParam(sqlDB, "NLS_TIMESTAMP_TZ_FORMAT", "YYYY-MM-DD HH24:MI:SSXFF TZR") // ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3 TZR';
+		_, _ = oracle.AddSessionParams(sqlDB, map[string]string{
+			"TIME_ZONE":               "+08:00",                       // ALTER SESSION SET TIME_ZONE = '+08:00';
+			"NLS_DATE_FORMAT":         "YYYY-MM-DD",                   // ALTER SESSION SET NLS_DATE_FORMAT = 'YYYY-MM-DD';
+			"NLS_TIME_FORMAT":         "HH24:MI:SSXFF",                // ALTER SESSION SET NLS_TIME_FORMAT = 'HH24:MI:SS.FF3';
+			"NLS_TIMESTAMP_FORMAT":    "YYYY-MM-DD HH24:MI:SSXFF",     // ALTER SESSION SET NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3';
+			"NLS_TIME_TZ_FORMAT":      "HH24:MI:SS.FF TZR",            // ALTER SESSION SET NLS_TIME_TZ_FORMAT = 'HH24:MI:SS.FF3 TZR';
+			"NLS_TIMESTAMP_TZ_FORMAT": "YYYY-MM-DD HH24:MI:SSXFF TZR", // ALTER SESSION SET NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3 TZR';
+        })
 	}
 
 	// do somethings
@@ -66,6 +68,7 @@ func main() {
 
 ## Questions
 
+<!--suppress HtmlDeprecatedAttribute -->
 <details>
 <summary>ORA-01000: 超出打开游标的最大数</summary>
 
@@ -86,7 +89,6 @@ commit;
 
 ## Contributors
 
-<!--suppress HtmlDeprecatedAttribute -->
 <!-- readme: collaborators,dzwvip,jinzhu,miclle,stevefan1999-personal,zhangzetao,CengSin/- -start -->
 <table>
 <tr>

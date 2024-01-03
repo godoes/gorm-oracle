@@ -1,6 +1,7 @@
 package oracle
 
 import (
+	"database/sql"
 	"log"
 	"os"
 	"reflect"
@@ -110,4 +111,53 @@ func openTestConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 		log.Println("open oracle database connection success!")
 	}
 	return
+}
+
+func TestAddSessionParams(t *testing.T) {
+	db, err := openTestConnection(true, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sqlDB *sql.DB
+	if sqlDB, err = db.DB(); err != nil {
+		t.Fatal(err)
+	}
+	type args struct {
+		params map[string]string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "TimeParams", args: args{params: map[string]string{
+			"TIME_ZONE":               "+08:00",                       // alter session set TIME_ZONE = '+08:00';
+			"NLS_DATE_FORMAT":         "YYYY-MM-DD",                   // alter session set NLS_DATE_FORMAT = 'YYYY-MM-DD';
+			"NLS_TIME_FORMAT":         "HH24:MI:SSXFF",                // alter session set NLS_TIME_FORMAT = 'HH24:MI:SS.FF3';
+			"NLS_TIMESTAMP_FORMAT":    "YYYY-MM-DD HH24:MI:SSXFF",     // alter session set NLS_TIMESTAMP_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3';
+			"NLS_TIME_TZ_FORMAT":      "HH24:MI:SS.FF TZR",            // alter session set NLS_TIME_TZ_FORMAT = 'HH24:MI:SS.FF3 TZR';
+			"NLS_TIMESTAMP_TZ_FORMAT": "YYYY-MM-DD HH24:MI:SSXFF TZR", // alter session set NLS_TIMESTAMP_TZ_FORMAT = 'YYYY-MM-DD HH24:MI:SS.FF3 TZR';
+		}}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			//queryTime := `SELECT SYSDATE FROM DUAL`
+			queryTime := `SELECT CAST(SYSDATE AS VARCHAR(30)) AS D FROM DUAL`
+			var timeStr string
+			if err = db.Raw(queryTime).Row().Scan(&timeStr); err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("SYSDATE 1: %s", timeStr)
+
+			var keys []string
+			if keys, err = AddSessionParams(sqlDB, tt.args.params); err != nil {
+				t.Fatalf("AddSessionParams() error = %v", err)
+			}
+			if err = db.Raw(queryTime).Row().Scan(&timeStr); err != nil {
+				t.Fatal(err)
+			}
+			defer DelSessionParams(sqlDB, keys)
+			t.Logf("SYSDATE 2: %s", timeStr)
+			t.Logf("keys: %#v", keys)
+		})
+	}
 }

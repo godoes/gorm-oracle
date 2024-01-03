@@ -82,6 +82,44 @@ func GetStringExpr(value string, quotes ...bool) clause.Expr {
 	return gorm.Expr(value)
 }
 
+// AddSessionParams setting database connection session parameters
+func AddSessionParams(db *sql.DB, params map[string]string) (keys []string, err error) {
+	if db == nil {
+		return
+	}
+	if _, ok := db.Driver().(*go_ora.OracleDriver); !ok {
+		return
+	}
+
+	for key, value := range params {
+		if key == "" || value == "" {
+			continue
+		}
+		if err = go_ora.AddSessionParam(db, key, value); err != nil {
+			return
+		}
+		keys = append(keys, key)
+	}
+	return
+}
+
+// DelSessionParams remove session parameters
+func DelSessionParams(db *sql.DB, keys []string) {
+	if db == nil {
+		return
+	}
+	if _, ok := db.Driver().(*go_ora.OracleDriver); !ok {
+		return
+	}
+
+	for _, key := range keys {
+		if key == "" {
+			continue
+		}
+		go_ora.DelSessionParam(db, key)
+	}
+}
+
 func convertCustomType(val interface{}) interface{} {
 	rv := reflect.ValueOf(val)
 	ri := rv.Interface()

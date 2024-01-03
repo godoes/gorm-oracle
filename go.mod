@@ -9,6 +9,7 @@ require (
 )
 
 retract (
+	v1.5.12
 	v1.5.1
 	v1.5.0
 )

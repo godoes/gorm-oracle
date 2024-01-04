@@ -3,7 +3,7 @@
 ## Description
 
 GORM Oracle driver for connect Oracle DB and Manage Oracle DB, Based on [CengSin/oracle](https://github.com/CengSin/oracle)
-and [sijms/go-ora](https://github.com/sijms/go-ora) (pure go oracle client)，not recommended for use in a production environment.
+and [sijms/go-ora](https://github.com/sijms/go-ora) (pure go oracle client)，*not recommended for use in a production environment*.
 
 ## Required dependency Install
 
@@ -26,7 +26,6 @@ package main
 
 import (
 	oracle "github.com/godoes/gorm-oracle"
-	goora "github.com/sijms/go-ora/v2"
 	"gorm.io/gorm"
 )
 

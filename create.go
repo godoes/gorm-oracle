@@ -50,6 +50,7 @@ func Create(db *gorm.DB) {
 				hasConflict = false
 			}
 		}
+
 		if hasConflict {
 			MergeCreate(db, onConflict, values)
 		} else {
@@ -59,35 +60,25 @@ func Create(db *gorm.DB) {
 		}
 
 		if !db.DryRun && db.Error == nil {
-			for _, value := range values.Values {
+			for i, val := range stmt.Vars {
 				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
-				for idx, val := range value {
-					val = ptrDereference(val)
-					switch v := val.(type) {
-					case bool:
-						if v {
-							val = 1
-						} else {
-							val = 0
-						}
-					default:
-						val = convertCustomType(val)
+				val = ptrDereference(val)
+				switch v := val.(type) {
+				case bool:
+					if v {
+						val = 1
+					} else {
+						val = 0
 					}
-
-					stmt.Vars[idx] = val
+				default:
+					val = convertCustomType(val)
 				}
-				// and then we insert each row one by one then put the returning values back (i.e. last return id => smart insert)
-				// we keep track of the index so that the sub-reflected value is also correct
+				stmt.Vars[i] = val
+			}
 
-				// BIG BUG: what if any of the transactions failed? some result might already be inserted that oracle is so
-				// sneaky that some transaction inserts will exceed the buffer and so will be pushed at unknown point,
-				// resulting in dangling row entries, so we might need to delete them if an error happens
-
-				result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...)
-				if db.AddError(err) == nil {
-					// success
-					db.RowsAffected, _ = result.RowsAffected()
-				}
+			result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...)
+			if db.AddError(err) == nil {
+				db.RowsAffected, _ = result.RowsAffected()
 			}
 		}
 	}

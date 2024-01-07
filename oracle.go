@@ -237,19 +237,34 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 	return
 }
 
-func (d Dialector) ClauseBuilders() map[string]clause.ClauseBuilder {
-	dbVer, _ := strconv.Atoi(strings.Split(d.DBVer, ".")[0])
-	if dbVer > 0 && dbVer < 12 {
-		return map[string]clause.ClauseBuilder{
-			"LIMIT": d.RewriteLimit11,
-		}
+func (d Dialector) ClauseBuilders() (clauseBuilders map[string]clause.ClauseBuilder) {
+	clauseBuilders = make(map[string]clause.ClauseBuilder)
 
+	if dbVer, _ := strconv.Atoi(strings.Split(d.DBVer, ".")[0]); dbVer > 0 && dbVer < 12 {
+		clauseBuilders["LIMIT"] = d.RewriteLimit11
 	} else {
-		return map[string]clause.ClauseBuilder{
-			"LIMIT": d.RewriteLimit,
-		}
+		clauseBuilders["LIMIT"] = d.RewriteLimit
 	}
 
+	clauseBuilders["RETURNING"] = func(c clause.Clause, builder clause.Builder) {
+		if returning, ok := c.Expression.(clause.Returning); ok {
+			_, _ = builder.WriteString("/*--*/")
+			_, _ = builder.WriteString("RETURNING ")
+
+			if len(returning.Columns) > 0 {
+				for idx, column := range returning.Columns {
+					if idx > 0 {
+						_ = builder.WriteByte(',')
+					}
+
+					builder.WriteQuoted(column)
+				}
+			} else {
+				_ = builder.WriteByte('*')
+			}
+		}
+	}
+	return
 }
 
 func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {

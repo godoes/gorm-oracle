@@ -1,6 +1,9 @@
 package oracle
 
 import (
+	"database/sql"
+	"reflect"
+
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -29,15 +32,14 @@ func Create(db *gorm.DB) {
 
 	if stmt.SQL.Len() == 0 {
 		var (
-			values                  = callbacks.ConvertToCreateValues(stmt)
+			createValues            = callbacks.ConvertToCreateValues(stmt)
 			onConflict, hasConflict = stmt.Clauses["ON CONFLICT"].Expression.(clause.OnConflict)
 		)
 
 		if hasConflict {
 			if len(stmtSchema.PrimaryFields) > 0 {
-				// are all columns in value the primary fields in schema only?
 				columnsMap := map[string]bool{}
-				for _, column := range values.Columns {
+				for _, column := range createValues.Columns {
 					columnsMap[column.Name] = true
 				}
 
@@ -51,34 +53,62 @@ func Create(db *gorm.DB) {
 			}
 		}
 
+		hasDefaultValues := len(stmtSchema.FieldsWithDefaultDBValue) > 0
 		if hasConflict {
-			MergeCreate(db, onConflict, values)
+			MergeCreate(db, onConflict, createValues)
 		} else {
 			stmt.AddClauseIfNotExists(clause.Insert{Table: clause.Table{Name: stmt.Schema.Table}})
-			stmt.AddClause(clause.Values{Columns: values.Columns, Values: [][]interface{}{values.Values[0]}})
-			stmt.Build("INSERT", "VALUES")
+			stmt.AddClause(clause.Values{Columns: createValues.Columns, Values: [][]interface{}{createValues.Values[0]}})
+
+			if hasDefaultValues {
+				columns := make([]clause.Column, len(stmtSchema.FieldsWithDefaultDBValue))
+				for idx, field := range stmtSchema.FieldsWithDefaultDBValue {
+					columns[idx] = clause.Column{Name: field.DBName}
+				}
+				stmt.AddClauseIfNotExists(clause.Returning{Columns: columns})
+			}
+			stmt.Build("INSERT", "VALUES", "RETURNING")
+
+			if hasDefaultValues {
+				_, _ = stmt.WriteString(" INTO ")
+				for idx, field := range stmtSchema.FieldsWithDefaultDBValue {
+					if idx > 0 {
+						_ = stmt.WriteByte(',')
+					}
+					stmt.AddVar(stmt, sql.Out{Dest: reflect.New(field.FieldType).Interface()})
+				}
+				_, _ = stmt.WriteString(" /*-sql.Out{}-*/")
+			}
 		}
 
 		if !db.DryRun && db.Error == nil {
-			for i, val := range stmt.Vars {
-				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
-				val = ptrDereference(val)
-				switch v := val.(type) {
-				case bool:
-					if v {
-						val = 1
-					} else {
-						val = 0
-					}
-				default:
-					val = convertCustomType(val)
+			if hasConflict {
+				for i, val := range stmt.Vars {
+					// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
+					stmt.Vars[i] = convertValue(val)
 				}
-				stmt.Vars[i] = val
-			}
 
-			result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...)
-			if db.AddError(err) == nil {
-				db.RowsAffected, _ = result.RowsAffected()
+				result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...)
+				if db.AddError(err) == nil {
+					db.RowsAffected, _ = result.RowsAffected()
+					// TODO: get merged returning
+				}
+			} else {
+				for idx, values := range createValues.Values {
+					for i, val := range values {
+						// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
+						stmt.Vars[i] = convertValue(val)
+					}
+
+					result, err := stmt.ConnPool.ExecContext(stmt.Context, stmt.SQL.String(), stmt.Vars...)
+					if db.AddError(err) == nil {
+						db.RowsAffected, _ = result.RowsAffected()
+
+						if hasDefaultValues {
+							getDefaultValues(db, idx)
+						}
+					}
+				}
 			}
 		}
 	}
@@ -164,4 +194,55 @@ func MergeCreate(db *gorm.DB, onConflict clause.OnConflict, values clause.Values
 		}
 	}
 	_, _ = db.Statement.WriteString(")")
+}
+
+func convertValue(val interface{}) interface{} {
+	val = ptrDereference(val)
+	switch v := val.(type) {
+	case bool:
+		if v {
+			val = 1
+		} else {
+			val = 0
+		}
+	default:
+		val = convertCustomType(val)
+	}
+	return val
+}
+
+func getDefaultValues(db *gorm.DB, idx int) {
+	insertTo := db.Statement.ReflectValue
+	switch insertTo.Kind() {
+	case reflect.Slice, reflect.Array:
+		insertTo = insertTo.Index(idx)
+	default:
+	}
+
+	for _, val := range db.Statement.Vars {
+		switch v := val.(type) {
+		case sql.Out:
+			switch insertTo.Kind() {
+			case reflect.Slice, reflect.Array:
+				for i := insertTo.Len() - 1; i >= 0; i-- {
+					rv := insertTo.Index(i)
+					if reflect.Indirect(rv).Kind() != reflect.Struct {
+						break
+					}
+
+					_, isZero := db.Statement.Schema.PrioritizedPrimaryField.ValueOf(db.Statement.Context, rv)
+					if isZero {
+						_ = db.AddError(db.Statement.Schema.PrioritizedPrimaryField.Set(db.Statement.Context, rv, v.Dest))
+					}
+				}
+			case reflect.Struct:
+				_, isZero := db.Statement.Schema.PrioritizedPrimaryField.ValueOf(db.Statement.Context, insertTo)
+				if isZero {
+					_ = db.AddError(db.Statement.Schema.PrioritizedPrimaryField.Set(db.Statement.Context, insertTo, v.Dest))
+				}
+			default:
+			}
+		default:
+		}
+	}
 }

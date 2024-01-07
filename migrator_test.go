@@ -1,6 +1,8 @@
 package oracle
 
 import (
+	"encoding/json"
+	"reflect"
 	"testing"
 	"time"
 )
@@ -29,7 +31,7 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 		{name: "TestTableUserAddColumn", args: args{models: []interface{}{TestTableUserAddColumn{}}, comments: []string{"用户信息表"}}},
 		{name: "TestTableUserMigrateColumn", args: args{models: []interface{}{TestTableUserMigrateColumn{}}, comments: []string{"用户信息表"}}},
 	}
-	for _, tt := range tests {
+	for idx, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if len(tt.args.models) == 0 {
 				t.Fatal("models is nil")
@@ -52,6 +54,42 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 			} else if err == nil {
 				t.Log("AutoMigrate() success!")
 			}
+
+			if idx == len(tests)-1 {
+				wantUser := TestTableUserMigrateColumn{
+					TestTableUser: TestTableUser{
+						UID:         "U0",
+						Name:        "someone",
+						Account:     "guest",
+						Password:    "MAkOvrJ8JV",
+						Email:       "",
+						PhoneNumber: "+8618888888888",
+						Sex:         "1",
+						UserType:    1,
+						Enabled:     true,
+						Remark:      "Ahmad",
+					},
+					AddNewColumn:       "AddNewColumnValue",
+					CommentSingleQuote: "CommentSingleQuoteValue",
+				}
+
+				result := db.Create(&wantUser)
+				if err = result.Error; err != nil {
+					t.Fatal(err)
+				}
+
+				var gotUser TestTableUserMigrateColumn
+				result.Where(&TestTableUser{UID: "U1"}).Find(&gotUser)
+				if err = result.Error; err != nil {
+					t.Fatal(err)
+				}
+				gotUserBytes, _ := json.Marshal(gotUser)
+				t.Logf("gotUser Result: %s", gotUserBytes)
+				if !reflect.DeepEqual(gotUser, wantUser) {
+					wantUserBytes, _ := json.Marshal(wantUser)
+					t.Errorf("wantUser Info: %s", wantUserBytes)
+				}
+			}
 		})
 	}
 }
@@ -59,7 +97,7 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 // TestTableUser 测试用户信息表模型
 type TestTableUser struct {
 	ID   uint64 `gorm:"column:id;size:64;not null;autoIncrement:true;autoIncrementIncrement:1;primaryKey;comment:自增 ID" json:"id"`
-	UID  string `gorm:"column:name;type:varchar(50);comment:用户身份标识" json:"uid"`
+	UID  string `gorm:"column:uid;type:varchar(50);comment:用户身份标识" json:"uid"`
 	Name string `gorm:"column:name;size:50;comment:用户姓名" json:"name"`
 
 	Account  string `gorm:"column:account;type:varchar(50);comment:登录账号" json:"account"`
@@ -68,8 +106,8 @@ type TestTableUser struct {
 	Email       string `gorm:"column:email;type:varchar(128);comment:邮箱地址" json:"email"`
 	PhoneNumber string `gorm:"column:phone_number;type:varchar(15);comment:E.164" json:"phoneNumber"`
 
-	Sex      string    `gorm:"column:sex;type:char(1);comment:性别" json:"sex"`
-	Birthday time.Time `gorm:"column:birthday;comment:生日" json:"birthday"`
+	Sex      string     `gorm:"column:sex;type:char(1);comment:性别" json:"sex"`
+	Birthday *time.Time `gorm:"column:birthday;->:false;<-:create;comment:生日" json:"birthday,omitempty"`
 
 	UserType int `gorm:"column:user_type;size:8;comment:用户类型" json:"userType"`
 

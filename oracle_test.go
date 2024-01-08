@@ -13,6 +13,15 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+func init() {
+	if wait := os.Getenv("GORM_ORA_WAIT_MIN"); wait != "" {
+		if min, e := strconv.Atoi(wait); e == nil {
+			log.Println("wait for oracle database initialization to complete...")
+			time.Sleep(time.Duration(min) * time.Minute)
+		}
+	}
+}
+
 func TestGetStringExpr(t *testing.T) {
 	db, err := openTestConnection(true, true)
 	if db == nil && err == nil {
@@ -85,12 +94,6 @@ func openTestConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 				"TERRITORY":          territory,
 				"SSL":                "false",
 			})
-	}
-	if wait := os.Getenv("GORM_ORA_WAIT_MIN"); wait != "" {
-		if min, e := strconv.Atoi(wait); e == nil {
-			log.Println("wait for oracle database initialization to complete...")
-			time.Sleep(time.Duration(min) * time.Minute)
-		}
 	}
 
 	logWriter := new(log.Logger)

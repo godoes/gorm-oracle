@@ -79,7 +79,7 @@ func TestMigrator_AutoMigrate(t *testing.T) {
 				}
 
 				var gotUser TestTableUserMigrateColumn
-				result.Where(&TestTableUser{UID: "U1"}).Find(&gotUser)
+				result.Where(&TestTableUser{UID: "U0"}).Find(&gotUser)
 				if err = result.Error; err != nil {
 					t.Fatal(err)
 				}

@@ -8,11 +8,13 @@ import (
 )
 
 func TestMigrator_AutoMigrate(t *testing.T) {
-	db, err := openTestConnection(true, true)
-	if db == nil && err == nil {
-		return
-	} else if err != nil {
+	db, err := dbNamingCase, dbErrors[0]
+	if err != nil {
 		t.Fatal(err)
+	}
+	if db == nil {
+		t.Log("db is nil!")
+		return
 	}
 
 	type args struct {

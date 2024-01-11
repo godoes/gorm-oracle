@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"reflect"
 
+	"github.com/sijms/go-ora/v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -204,6 +205,10 @@ func convertValue(val interface{}) interface{} {
 			val = 1
 		} else {
 			val = 0
+		}
+	case string:
+		if len(v) > 2000 {
+			val = go_ora.Clob{String: v, Valid: true}
 		}
 	default:
 		val = convertCustomType(val)

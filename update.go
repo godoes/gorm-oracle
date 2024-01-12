@@ -48,6 +48,10 @@ func Update(config *callbacks.Config) func(db *gorm.DB) {
 		checkMissingWhereConditions(db)
 
 		if !db.DryRun && db.Error == nil {
+			for i, val := range stmt.Vars {
+				// HACK: replace values one by one, assuming its value layout will be the same all the time, i.e. aligned
+				stmt.Vars[i] = convertValue(val)
+			}
 			if ok, mode := hasReturning(db, supportReturning); ok {
 				if rows, err := stmt.ConnPool.QueryContext(stmt.Context, stmt.SQL.String(), stmt.Vars...); db.AddError(err) == nil {
 					dest := stmt.Dest

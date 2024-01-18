@@ -223,6 +223,9 @@ func getDefaultValues(db *gorm.DB, idx int) {
 		insertTo = insertTo.Index(idx)
 	default:
 	}
+	if insertTo.Kind() == reflect.Pointer {
+		insertTo = insertTo.Elem()
+	}
 
 	for _, val := range db.Statement.Vars {
 		switch v := val.(type) {

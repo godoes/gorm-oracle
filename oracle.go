@@ -248,7 +248,7 @@ func (d Dialector) ClauseBuilders() (clauseBuilders map[string]clause.ClauseBuil
 
 	clauseBuilders["RETURNING"] = func(c clause.Clause, builder clause.Builder) {
 		if returning, ok := c.Expression.(clause.Returning); ok {
-			_, _ = builder.WriteString("/*--*/")
+			_, _ = builder.WriteString("/*- -*/")
 			_, _ = builder.WriteString("RETURNING ")
 
 			if len(returning.Columns) > 0 {

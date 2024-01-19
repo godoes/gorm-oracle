@@ -6,6 +6,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,6 +85,43 @@ func openTestConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 		log.Println("open oracle database connection success!")
 	}
 	return
+}
+
+func TestCountLimit0(t *testing.T) {
+	db, err := dbNamingCase, dbErrors[0]
+	if err != nil {
+		t.Fatal(err)
+	}
+	if db == nil {
+		t.Log("db is nil!")
+		return
+	}
+
+	model := TestTableUser{}
+	migrator := db.Set("gorm:table_comments", "用户信息表").Migrator()
+	if migrator.HasTable(model) {
+		if err = migrator.DropTable(model); err != nil {
+			t.Fatalf("DropTable() error = %v", err)
+		}
+	}
+	if err = migrator.AutoMigrate(model); err != nil {
+		t.Fatalf("AutoMigrate() error = %v", err)
+	} else if err == nil {
+		t.Log("AutoMigrate() success!")
+	}
+
+	var count int64
+	result := db.Model(&model).Limit(-1).Count(&count)
+	if err = result.Error; err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("Limit(-1) count = %d", count)
+
+	if countSql := db.ToSQL(func(tx *gorm.DB) *gorm.DB {
+		return tx.Model(&model).Limit(-1).Count(&count)
+	}); strings.Contains(countSql, "ORDER BY") {
+		t.Error(`The "count(*)" statement contains the "ORDER BY" clause!`)
+	}
 }
 
 func TestAddSessionParams(t *testing.T) {

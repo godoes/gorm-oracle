@@ -267,10 +267,20 @@ func (d Dialector) ClauseBuilders() (clauseBuilders map[string]clause.ClauseBuil
 	return
 }
 
+func (d Dialector) getLimitRows(limit clause.Limit) (limitRows int, hasLimit bool) {
+	if l := limit.Limit; l != nil {
+		limitRows = *l
+		hasLimit = limitRows > 0
+	}
+	return
+}
+
 func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 	if limit, ok := c.Expression.(clause.Limit); ok {
+		limitRows, hasLimit := d.getLimitRows(limit)
+
 		if stmt, ok := builder.(*gorm.Statement); ok {
-			if _, ok := stmt.Clauses["ORDER BY"]; !ok {
+			if _, hasOrderBy := stmt.Clauses["ORDER BY"]; !hasOrderBy && hasLimit {
 				s := stmt.Schema
 				_, _ = builder.WriteString("ORDER BY ")
 				if s != nil && s.PrioritizedPrimaryField != nil {
@@ -289,9 +299,9 @@ func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 			_, _ = builder.WriteString(strconv.Itoa(offset))
 			_, _ = builder.WriteString(" ROWS")
 		}
-		if limit := limit.Limit; limit != nil && *limit >= 0 {
+		if hasLimit {
 			_, _ = builder.WriteString(" FETCH NEXT ")
-			_, _ = builder.WriteString(strconv.Itoa(*limit))
+			_, _ = builder.WriteString(strconv.Itoa(limitRows))
 			_, _ = builder.WriteString(" ROWS ONLY")
 		}
 	}
@@ -300,18 +310,20 @@ func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 // RewriteLimit11 Oracle11 Limit
 func (d Dialector) RewriteLimit11(c clause.Clause, builder clause.Builder) {
 	if limit, ok := c.Expression.(clause.Limit); ok {
+		limitRows, hasLimit := d.getLimitRows(limit)
+
 		if stmt, ok := builder.(*gorm.Statement); ok {
 			limitSql := strings.Builder{}
-			if limit := limit.Limit; *limit > 0 {
+			if hasLimit {
 				if _, ok := stmt.Clauses["WHERE"]; !ok {
 					limitSql.WriteString(" WHERE ")
 				} else {
 					limitSql.WriteString(" AND ")
 				}
 				limitSql.WriteString("ROWNUM <= ")
-				limitSql.WriteString(strconv.Itoa(*limit))
+				limitSql.WriteString(strconv.Itoa(limitRows))
 			}
-			if _, ok := stmt.Clauses["ORDER BY"]; !ok {
+			if _, hasOrderBy := stmt.Clauses["ORDER BY"]; !hasOrderBy {
 				_, _ = builder.WriteString(limitSql.String())
 			} else {
 				//  "ORDER BY" before  insert

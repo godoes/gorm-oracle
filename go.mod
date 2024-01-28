@@ -4,8 +4,8 @@ go 1.16
 
 require (
 	github.com/emirpasic/gods v1.18.1
-	github.com/sijms/go-ora/v2 v2.8.6
-	gorm.io/gorm v1.25.6-0.20231228115336-87decced23be
+	github.com/sijms/go-ora/v2 v2.8.7
+	gorm.io/gorm v1.25.6
 )
 
 retract (

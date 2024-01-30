@@ -39,9 +39,10 @@ func main() {
 	// oracle://user:password@127.0.0.1:1521/service
 	url := oracle.BuildUrl("127.0.0.1", "1521", "service", "user", "password", options)
 	dialector := oracle.New(oracle.Config{
-		DSN:                 url,
-		IgnoreCase:          false, // query conditions are not case-sensitive
-		NamingCaseSensitive: true,  // whether naming is case-sensitive
+		DSN:                     url,
+		IgnoreCase:              false, // query conditions are not case-sensitive
+		NamingCaseSensitive:     true,  // whether naming is case-sensitive
+		VarcharSizeIsCharLength: true,  // whether VARCHAR type size is character length, defaulting to byte length
 	})
 	db, err := gorm.Open(dialector, &gorm.Config{
 		SkipDefaultTransaction:                   true, // 是否禁用默认在事务中执行单次创建、更新、删除操作

@@ -29,6 +29,8 @@ type Config struct {
 
 	IgnoreCase          bool // warning: may cause performance issues
 	NamingCaseSensitive bool // whether naming is case-sensitive
+	// whether VARCHAR type size is character length, defaulting to byte length
+	VarcharSizeIsCharLength bool
 }
 
 type Dialector struct {
@@ -465,8 +467,17 @@ func (d Dialector) DataTypeOf(field *schema.Field) string {
 			}
 		}
 
-		if size > 0 && size <= 2000 {
-			sqlType = fmt.Sprintf("VARCHAR2(%d)", size)
+		if size > 0 && size <= 4000 {
+			// 默认情况下 VARCHAR2 可以指定一个不超过 4000 的正整数作为字节长度
+			if d.VarcharSizeIsCharLength {
+				if size*3 > 4000 {
+					sqlType = "CLOB"
+				} else {
+					sqlType = fmt.Sprintf("VARCHAR2(%d CHAR)", size) // 字符长度（size * 3）
+				}
+			} else {
+				sqlType = fmt.Sprintf("VARCHAR2(%d)", size)
+			}
 		} else {
 			sqlType = "CLOB"
 		}

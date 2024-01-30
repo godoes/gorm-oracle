@@ -38,7 +38,21 @@ func init() {
 }
 
 func openTestConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
-	dsn := os.Getenv("GORM_ORA_DSN")
+	dsn := getTestDSN()
+
+	db, err = gorm.Open(New(Config{
+		DSN:                 dsn,
+		IgnoreCase:          ignoreCase,
+		NamingCaseSensitive: namingCase,
+	}), getTestGormConfig())
+	if db != nil && err == nil {
+		log.Println("open oracle database connection success!")
+	}
+	return
+}
+
+func getTestDSN() (dsn string) {
+	dsn = os.Getenv("GORM_ORA_DSN")
 	if dsn == "" {
 		server := os.Getenv("GORM_ORA_SERVER")
 		port, _ := strconv.Atoi(os.Getenv("GORM_ORA_PORT"))
@@ -66,25 +80,21 @@ func openTestConnection(ignoreCase, namingCase bool) (db *gorm.DB, err error) {
 				"SSL":                "false",
 			})
 	}
+	return
+}
 
+func getTestGormConfig() *gorm.Config {
 	logWriter := new(log.Logger)
 	logWriter.SetOutput(os.Stdout)
-	db, err = gorm.Open(New(Config{
-		DSN:                 dsn,
-		IgnoreCase:          ignoreCase,
-		NamingCaseSensitive: namingCase,
-	}), &gorm.Config{
+
+	return &gorm.Config{
 		Logger: logger.New(
 			logWriter,
 			logger.Config{LogLevel: logger.Info},
 		),
 		DisableForeignKeyConstraintWhenMigrating: false,
 		IgnoreRelationshipsWhenMigrating:         false,
-	})
-	if db != nil && err == nil {
-		log.Println("open oracle database connection success!")
 	}
-	return
 }
 
 func TestCountLimit0(t *testing.T) {
@@ -221,4 +231,61 @@ func TestGetStringExpr(t *testing.T) {
 			t.Log("result:", results)
 		})
 	}
+}
+
+func TestVarcharSizeIsCharLength(t *testing.T) {
+	dsn := getTestDSN()
+
+	db, err := gorm.Open(New(Config{
+		DSN:                     dsn,
+		IgnoreCase:              true,
+		NamingCaseSensitive:     true,
+		VarcharSizeIsCharLength: true,
+	}), getTestGormConfig())
+	if db != nil && err == nil {
+		log.Println("open oracle database connection success!")
+	}
+
+	model := TestTableUserVarcharSize{}
+	migrator := db.Set("gorm:table_comments", "TestVarcharSizeIsCharLength").Migrator()
+	if migrator.HasTable(model) {
+		if err = migrator.DropTable(model); err != nil {
+			t.Fatalf("DropTable() error = %v", err)
+		}
+	}
+	if err = migrator.AutoMigrate(model); err != nil {
+		t.Fatalf("AutoMigrate() error = %v", err)
+	} else if err == nil {
+		t.Log("AutoMigrate() success!")
+	}
+
+	type args struct {
+		value string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{"50", args{strings.Repeat("姓名", 25)}, false},
+		{"60", args{strings.Repeat("姓名", 30)}, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotErr := db.Create(&TestTableUserVarcharSize{TestTableUser{Name: tt.args.value}}).Error
+			if (gotErr != nil) != tt.wantErr {
+				t.Error(gotErr)
+			} else if gotErr != nil {
+				t.Log(gotErr)
+			}
+		})
+	}
+}
+
+type TestTableUserVarcharSize struct {
+	TestTableUser
+}
+
+func (TestTableUserVarcharSize) TableName() string {
+	return "test_user_varchar_size"
 }

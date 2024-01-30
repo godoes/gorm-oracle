@@ -2,6 +2,7 @@ package oracle
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"os"
 	"reflect"
@@ -132,6 +133,26 @@ func TestCountLimit0(t *testing.T) {
 	}); strings.Contains(countSql, "ORDER BY") {
 		t.Error(`The "count(*)" statement contains the "ORDER BY" clause!`)
 	}
+}
+
+func TestLimit(t *testing.T) {
+	db, err := dbNamingCase, dbErrors[0]
+	if err != nil {
+		t.Fatal(err)
+	}
+	if db == nil {
+		t.Log("db is nil!")
+		return
+	}
+	TestMergeCreate(t)
+
+	var data []TestTableUser
+	result := db.Model(&TestTableUser{}).Limit(10).Find(&data)
+	if err = result.Error; err != nil {
+		t.Fatal(err)
+	}
+	dataBytes, _ := json.MarshalIndent(data, "", "  ")
+	t.Logf("Limit(10) got size = %d, data = %s", len(data), dataBytes)
 }
 
 func TestAddSessionParams(t *testing.T) {

@@ -298,12 +298,12 @@ func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 
 		if offset := limit.Offset; offset > 0 {
 			_, _ = builder.WriteString(" OFFSET ")
-			_, _ = builder.WriteString(strconv.Itoa(offset))
+			builder.AddVar(builder, offset)
 			_, _ = builder.WriteString(" ROWS")
 		}
 		if hasLimit {
 			_, _ = builder.WriteString(" FETCH NEXT ")
-			_, _ = builder.WriteString(strconv.Itoa(limitRows))
+			builder.AddVar(builder, limitRows)
 			_, _ = builder.WriteString(" ROWS ONLY")
 		}
 	}

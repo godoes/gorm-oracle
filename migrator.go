@@ -69,9 +69,10 @@ func (m Migrator) FullDataTypeOf(field *schema.Field) (expr clause.Expr) {
 		expr.SQL += " NOT NULL"
 	}
 
-	if field.Unique {
-		expr.SQL += " UNIQUE"
-	}
+	// see https://github.com/go-gorm/gorm/pull/6822
+	//if field.Unique {
+	//	expr.SQL += " UNIQUE"
+	//}
 
 	return
 }

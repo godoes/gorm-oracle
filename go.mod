@@ -5,7 +5,12 @@ go 1.16
 require (
 	github.com/emirpasic/gods v1.18.1
 	github.com/sijms/go-ora/v2 v2.8.7
-	gorm.io/gorm v1.25.6
+	gorm.io/gorm v1.25.7
+)
+
+exclude (
+	github.com/sijms/go-ora/v2 v2.8.8 // ORA-03137: 来自客户机的格式错误的 TTC 包被拒绝: [opiexe: protocol violation]
+	github.com/sijms/go-ora/v2 v2.8.9 // has bug
 )
 
 retract (

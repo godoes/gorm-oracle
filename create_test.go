@@ -149,7 +149,7 @@ func TestMergeCreateUnique(t *testing.T) {
 	t.Run("MergeCreateUnique", func(t *testing.T) {
 		tx := db.Create(&data)
 		if err = tx.Error; err != nil {
-			if strings.HasPrefix(err.Error(), "ORA-00001") {
+			if strings.Contains(err.Error(), "ORA-00001") {
 				t.Log(err) // ORA-00001: 违反唯一约束条件
 				var gotData []TestTableUserUnique
 				tx = db.Where(map[string]interface{}{"uid": []string{"U1", "U2"}}).Find(&gotData)

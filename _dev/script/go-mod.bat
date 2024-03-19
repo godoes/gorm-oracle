@@ -19,6 +19,6 @@ go mod tidy & echo.
 :: echo 3. 导入模块依赖到 vendor 目录...
 :: go mod vendor & echo.
 
-git add .
+git add . 2>nul
 
 call "%~dp0/done-time-pause.bat"

@@ -7,9 +7,11 @@ and [sijms/go-ora](https://github.com/sijms/go-ora) (pure go oracle client)，*n
 
 ## Required dependency Install
 
-- Oracle 12C+
-- Golang 1.16+
-- gorm 1.24.0+
+- Oracle 12C +
+- Golang
+  - `v1.6.1`: `go1.16 +`
+  - `v1.6.2`: `go1.18 +`
+- gorm 1.24.0 +
 
 ## Quick Start
 

@@ -97,7 +97,7 @@ func AddSessionParams(db *sql.DB, params map[string]string) (keys []string, err 
 		if key == "" || value == "" {
 			continue
 		}
-		if err = go_ora.AddSessionParam(db, key, value); err != nil {
+		if err = go_ora.AddSessionParam(db, key, fmt.Sprintf("'%s'", value)); err != nil {
 			return
 		}
 		keys = append(keys, key)

@@ -7,11 +7,11 @@ and [sijms/go-ora](https://github.com/sijms/go-ora) (pure go oracle client)，*n
 
 ## Required dependency Install
 
-- Oracle 12C +
+- Oracle `11g` + (*`v1.6.3` and earlier versions support only `12c` +*)
 - Golang
-  - `v1.6.1`: `go1.16 +`
-  - `v1.6.2`: `go1.18 +`
-- gorm 1.24.0 +
+  - `v1.6.1`: `go1.16` +
+  - `v1.6.2`: `go1.18` +
+- gorm `1.24.0` +
 
 ## Quick Start
 
@@ -45,6 +45,9 @@ func main() {
 		IgnoreCase:              false, // query conditions are not case-sensitive
 		NamingCaseSensitive:     true,  // whether naming is case-sensitive
 		VarcharSizeIsCharLength: true,  // whether VARCHAR type size is character length, defaulting to byte length
+
+		// RowNumberAliasForOracle11 is the alias for ROW_NUMBER() in Oracle 11g, defaulting to ROW_NUM
+		RowNumberAliasForOracle11: "ROW_NUM",
 	})
 	db, err := gorm.Open(dialector, &gorm.Config{
 		SkipDefaultTransaction:                   true, // 是否禁用默认在事务中执行单次创建、更新、删除操作

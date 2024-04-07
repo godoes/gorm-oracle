@@ -117,9 +117,8 @@ func TestCountLimit0(t *testing.T) {
 	}
 	if err = migrator.AutoMigrate(model); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
-	} else if err == nil {
-		t.Log("AutoMigrate() success!")
 	}
+	t.Log("AutoMigrate() success!")
 
 	var count int64
 	result := db.Model(&model).Limit(-1).Count(&count)
@@ -146,13 +145,38 @@ func TestLimit(t *testing.T) {
 	}
 	TestMergeCreate(t)
 
-	var data []TestTableUser
-	result := db.Model(&TestTableUser{}).Limit(10).Find(&data)
-	if err = result.Error; err != nil {
-		t.Fatal(err)
+	type args struct {
+		offset, limit int
+		order         string
 	}
-	dataBytes, _ := json.MarshalIndent(data, "", "  ")
-	t.Logf("Limit(10) got size = %d, data = %s", len(data), dataBytes)
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "OffsetLimit0", args: args{offset: 0, limit: 0}},
+		{name: "Offset10", args: args{offset: 10, limit: 0}},
+		{name: "Limit10", args: args{offset: 0, limit: 10}},
+		{name: "Offset10Limit10", args: args{offset: 10, limit: 10}},
+		{name: "Offset10Limit10Order", args: args{offset: 10, limit: 10, order: `"id"`}},
+		{name: "Offset10Limit10OrderDESC", args: args{offset: 10, limit: 10, order: `"id" DESC`}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var data []TestTableUser
+			result := db.Model(&TestTableUser{}).
+				Offset(tt.args.offset).
+				Limit(tt.args.limit).
+				Order(tt.args.order).
+				Find(&data)
+			if err = result.Error; err != nil {
+				t.Fatal(err)
+			}
+			dataBytes, _ := json.MarshalIndent(data, "", "  ")
+			t.Logf("Offset(%d) Limit(%d) got size = %d, data = %s",
+				tt.args.offset, tt.args.limit, len(data), dataBytes)
+		})
+	}
 }
 
 func TestAddSessionParams(t *testing.T) {
@@ -265,6 +289,8 @@ func TestVarcharSizeIsCharLength(t *testing.T) {
 	}), getTestGormConfig())
 	if db != nil && err == nil {
 		log.Println("open oracle database connection success!")
+	} else {
+		t.Fatal(err)
 	}
 
 	model := TestTableUserVarcharSize{}
@@ -276,9 +302,8 @@ func TestVarcharSizeIsCharLength(t *testing.T) {
 	}
 	if err = migrator.AutoMigrate(model); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
-	} else if err == nil {
-		t.Log("AutoMigrate() success!")
 	}
+	t.Log("AutoMigrate() success!")
 
 	type args struct {
 		value string

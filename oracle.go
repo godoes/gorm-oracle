@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -31,6 +30,9 @@ type Config struct {
 	NamingCaseSensitive bool // whether naming is case-sensitive
 	// whether VARCHAR type size is character length, defaulting to byte length
 	VarcharSizeIsCharLength bool
+
+	// RowNumberAliasForOracle11 is the alias for ROW_NUMBER() in Oracle 11g, defaulting to ROW_NUM
+	RowNumberAliasForOracle11 string
 }
 
 type Dialector struct {
@@ -242,10 +244,10 @@ func (d Dialector) Initialize(db *gorm.DB) (err error) {
 func (d Dialector) ClauseBuilders() (clauseBuilders map[string]clause.ClauseBuilder) {
 	clauseBuilders = make(map[string]clause.ClauseBuilder)
 
-	if dbVer, _ := strconv.Atoi(strings.Split(d.DBVer, ".")[0]); dbVer > 0 && dbVer < 12 {
-		clauseBuilders["LIMIT"] = d.RewriteLimit11
-	} else {
+	if dbVer, _ := strconv.Atoi(strings.Split(d.DBVer, ".")[0]); dbVer > 11 {
 		clauseBuilders["LIMIT"] = d.RewriteLimit
+	} else {
+		clauseBuilders["LIMIT"] = d.RewriteLimit11
 	}
 
 	clauseBuilders["RETURNING"] = func(c clause.Clause, builder clause.Builder) {
@@ -309,37 +311,105 @@ func (d Dialector) RewriteLimit(c clause.Clause, builder clause.Builder) {
 	}
 }
 
-// RewriteLimit11 Oracle11 Limit
+// RewriteLimit11 rewrite the LIMIT clause in the query to accommodate pagination requirements for Oracle 11g and lower database versions
+//
+// # Limit and Offset
+//
+//	SELECT * FROM (SELECT T.*, ROW_NUMBER() OVER (ORDER BY column) AS ROW_NUM FROM table_name T)
+//	WHERE ROW_NUM BETWEEN offset+1 AND offset+limit
+//
+// # Only Limit
+//
+//	SELECT * FROM table_name WHERE ROWNUM <= limit ORDER BY column
+//
+// # Only Offset
+//
+//	SELECT * FROM table_name WHERE ROWNUM > offset ORDER BY column
 func (d Dialector) RewriteLimit11(c clause.Clause, builder clause.Builder) {
-	if limit, ok := c.Expression.(clause.Limit); ok {
-		limitRows, hasLimit := d.getLimitRows(limit)
+	limit, ok := c.Expression.(clause.Limit)
+	if !ok {
+		return
+	}
+	offsetRows := limit.Offset
+	hasOffset := offsetRows > 0
+	limitRows, hasLimit := d.getLimitRows(limit)
+	if !hasOffset && !hasLimit {
+		return
+	}
 
-		if stmt, ok := builder.(*gorm.Statement); ok {
-			limitSql := strings.Builder{}
-			if hasLimit {
-				if _, ok := stmt.Clauses["WHERE"]; !ok {
-					limitSql.WriteString(" WHERE ")
-				} else {
-					limitSql.WriteString(" AND ")
+	var stmt *gorm.Statement
+	if stmt, ok = builder.(*gorm.Statement); !ok {
+		return
+	}
+
+	if hasLimit && hasOffset {
+		// 使用 ROW_NUMBER() 和子查询实现分页查询
+		if d.RowNumberAliasForOracle11 == "" {
+			d.RowNumberAliasForOracle11 = "ROW_NUM"
+		}
+		subQuerySQL := fmt.Sprintf(
+			"SELECT * FROM (SELECT T.*, ROW_NUMBER() OVER (ORDER BY %s) AS %s FROM (%s) T) WHERE %s BETWEEN %d AND %d",
+			d.getOrderByColumns(stmt),
+			d.RowNumberAliasForOracle11,
+			strings.TrimSpace(stmt.SQL.String()),
+			d.RowNumberAliasForOracle11,
+			offsetRows+1,
+			offsetRows+limitRows,
+		)
+		stmt.SQL.Reset()
+		stmt.SQL.WriteString(subQuerySQL)
+	} else if hasLimit {
+		// 只有 Limit 的情况
+		d.rewriteRownumStmt(stmt, builder, " <= ", limitRows)
+	} else {
+		// 只有 Offset 的情况
+		d.rewriteRownumStmt(stmt, builder, " > ", offsetRows)
+	}
+}
+
+func (d Dialector) rewriteRownumStmt(stmt *gorm.Statement, builder clause.Builder, operator string, rows int) {
+	limitSql := strings.Builder{}
+	if _, ok := stmt.Clauses["WHERE"]; !ok {
+		limitSql.WriteString(" WHERE ")
+	} else {
+		limitSql.WriteString(" AND ")
+	}
+	limitSql.WriteString("ROWNUM")
+	limitSql.WriteString(operator)
+	limitSql.WriteString(strconv.Itoa(rows))
+
+	if _, hasOrderBy := stmt.Clauses["ORDER BY"]; !hasOrderBy {
+		_, _ = builder.WriteString(limitSql.String())
+	} else {
+		// "ORDER BY" before insert
+		sqlTmp := strings.Builder{}
+		sqlOld := stmt.SQL.String()
+		orderIndex := strings.Index(sqlOld, "ORDER BY") - 1
+		sqlTmp.WriteString(sqlOld[:orderIndex])
+		sqlTmp.WriteString(limitSql.String())
+		sqlTmp.WriteString(sqlOld[orderIndex:])
+		stmt.SQL = sqlTmp
+	}
+}
+
+func (d Dialector) getOrderByColumns(stmt *gorm.Statement) string {
+	if orderByClause, ok := stmt.Clauses["ORDER BY"]; ok {
+		var orderBy clause.OrderBy
+		if orderBy, ok = orderByClause.Expression.(clause.OrderBy); ok && len(orderBy.Columns) > 0 {
+			orderByBuilder := strings.Builder{}
+			for i, column := range orderBy.Columns {
+				if i > 0 {
+					orderByBuilder.WriteString(", ")
 				}
-				limitSql.WriteString("ROWNUM <= ")
-				limitSql.WriteString(strconv.Itoa(limitRows))
+				orderByBuilder.WriteString(column.Column.Name)
+				if column.Desc {
+					orderByBuilder.WriteString(" DESC")
+				}
 			}
-			if _, hasOrderBy := stmt.Clauses["ORDER BY"]; !hasOrderBy {
-				_, _ = builder.WriteString(limitSql.String())
-			} else {
-				//  "ORDER BY" before  insert
-				sqlTmp := strings.Builder{}
-				sqlOld := stmt.SQL.String()
-				orderIndex := strings.Index(sqlOld, "ORDER BY") - 1
-				sqlTmp.WriteString(sqlOld[:orderIndex])
-				sqlTmp.WriteString(limitSql.String())
-				sqlTmp.WriteString(sqlOld[orderIndex:])
-				log.Println(sqlTmp.String())
-				stmt.SQL = sqlTmp
-			}
+			return orderByBuilder.String()
 		}
 	}
+	return "NULL"
 }
 
 func (d Dialector) DefaultValueOf(*schema.Field) clause.Expression {

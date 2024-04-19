@@ -193,7 +193,7 @@ func (d Dialector) Name() string {
 
 func (d Dialector) Initialize(db *gorm.DB) (err error) {
 	db.NamingStrategy = Namer{
-		NamingStrategy: db.NamingStrategy.(schema.NamingStrategy),
+		NamingStrategy: db.NamingStrategy,
 		CaseSensitive:  d.NamingCaseSensitive,
 	}
 	d.DefaultStringSize = 1024

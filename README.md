@@ -138,6 +138,13 @@ commit;
         </a>
     </td>
     <td align="center">
+        <a href="https://github.com/cloorc">
+            <img src="https://avatars.githubusercontent.com/u/13597105?v=4" width="100;" alt="cloorc"/>
+            <br />
+            <sub><b>cloorc</b></sub>
+        </a>
+    </td>
+    <td align="center">
         <a href="https://github.com/dzwvip">
             <img src="https://avatars.githubusercontent.com/u/17947637?v=4" width="100;" alt="dzwvip"/>
             <br />
@@ -164,12 +171,13 @@ commit;
             <br />
             <sub><b>stevefan1999-personal</b></sub>
         </a>
-    </td>
+    </td></tr>
+<tr>
     <td align="center">
-        <a href="https://github.com/zhangzetao">
-            <img src="https://avatars.githubusercontent.com/u/15045771?v=4" width="100;" alt="zhangzetao"/>
+        <a href="https://github.com/cengsin">
+            <img src="https://avatars.githubusercontent.com/u/23357893?v=4" width="100;" alt="cengsin"/>
             <br />
-            <sub><b>zhangzetao</b></sub>
+            <sub><b>cengsin</b></sub>
         </a>
     </td></tr>
 </table>

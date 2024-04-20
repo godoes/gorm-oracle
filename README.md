@@ -127,7 +127,7 @@ commit;
 
 ## Contributors
 
-<!-- readme: collaborators,dzwvip,jinzhu,miclle,stevefan1999-personal,zhangzetao,CengSin/- -start -->
+<!-- readme: collaborators,cloorc,dzwvip,jinzhu,miclle,stevefan1999-personal,CengSin,zhangzetao/- -start -->
 <table>
 <tr>
     <td align="center">
@@ -173,7 +173,7 @@ commit;
         </a>
     </td></tr>
 </table>
-<!-- readme: collaborators,dzwvip,jinzhu,miclle,stevefan1999-personal,zhangzetao,CengSin/- -end -->
+<!-- readme: collaborators,cloorc,dzwvip,jinzhu,miclle,stevefan1999-personal,CengSin,zhangzetao/- -end -->
 
 ## LICENSE
 

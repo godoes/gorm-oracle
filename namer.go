@@ -7,7 +7,7 @@ import (
 )
 
 type Namer struct {
-	schema.NamingStrategy
+	NamingStrategy schema.Namer
 
 	CaseSensitive bool // whether naming is case-sensitive
 }
@@ -48,4 +48,12 @@ func (n Namer) CheckerName(table, column string) (name string) {
 
 func (n Namer) IndexName(table, column string) (name string) {
 	return n.ConvertNameToFormat(n.NamingStrategy.IndexName(table, column))
+}
+
+func (n Namer) SchemaName(table string) string {
+	return n.ConvertNameToFormat(n.NamingStrategy.SchemaName(table))
+}
+
+func (n Namer) UniqueName(table, column string) string {
+	return n.ConvertNameToFormat(n.NamingStrategy.UniqueName(table, column))
 }

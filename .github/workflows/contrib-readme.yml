@@ -1,10 +1,9 @@
-name: main
+name: A job to automate contrib in readme
 
 on:
   push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
   contrib-readme-job:
@@ -12,7 +11,7 @@ jobs:
     name: A job to automate contribute list in readme.md
     steps:
       - name: Contribute List
-        uses: akhilmhdh/contributors-readme-action@v2.3.6
+        uses: akhilmhdh/contributors-readme-action@v2.3.8
         with:
           # Size of square images in the stack
           image_size: 100

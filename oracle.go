@@ -86,20 +86,32 @@ func GetStringExpr(value string, quotes ...bool) clause.Expr {
 	return gorm.Expr(value)
 }
 
-// AddSessionParams setting database connection session parameters
-func AddSessionParams(db *sql.DB, params map[string]string) (keys []string, err error) {
+// AddSessionParams setting database connection session parameters,
+// the value is wrapped in single quotes.
+//
+// If the value doesn't need to be wrapped in single quotes,
+// please use the go_ora.AddSessionParam function directly,
+// or pass the originals parameter as true.
+func AddSessionParams(db *sql.DB, params map[string]string, originals ...bool) (keys []string, err error) {
 	if db == nil {
 		return
 	}
 	if _, ok := db.Driver().(*go_ora.OracleDriver); !ok {
 		return
 	}
+	var original bool
+	if len(originals) > 0 {
+		original = originals[0]
+	}
 
 	for key, value := range params {
 		if key == "" || value == "" {
 			continue
 		}
-		if err = go_ora.AddSessionParam(db, key, fmt.Sprintf("'%s'", value)); err != nil {
+		if !original {
+			value = GetStringExpr(value, true).SQL
+		}
+		if err = go_ora.AddSessionParam(db, key, value); err != nil {
 			return
 		}
 		keys = append(keys, key)

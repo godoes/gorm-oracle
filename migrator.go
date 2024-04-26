@@ -87,8 +87,10 @@ func (m Migrator) CurrentDatabase() (name string) {
 // GetTypeAliases return database type aliases
 func (m Migrator) GetTypeAliases(databaseTypeName string) (types []string) {
 	switch databaseTypeName {
-	case "clob", "ocicloblocator":
-		types = append(types, "clob", "ocicloblocator")
+	case "blob", "longraw":
+		types = append(types, "blob", "longraw")
+	case "clob", "longvarchar", "ocicloblocator":
+		types = append(types, "clob", "longvarchar", "ocicloblocator")
 	case "nchar", "varchar", "varchar2":
 		types = append(types, "nchar", "varchar", "varchar2")
 	case "number", "integer", "smallint":

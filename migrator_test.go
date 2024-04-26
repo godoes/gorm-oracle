@@ -5,6 +5,8 @@ import (
 	"reflect"
 	"testing"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 func TestMigrator_AutoMigrate(t *testing.T) {
@@ -164,4 +166,58 @@ type TestTableUserMigrateColumn struct {
 
 func (TestTableUserMigrateColumn) TableName() string {
 	return "test_user"
+}
+
+type testTableColumnTypeModel struct {
+	ID   int64  `gorm:"column:id;size:64;not null;autoIncrement:true;autoIncrementIncrement:1;primaryKey"`
+	Name string `gorm:"column:name;size:50"`
+	Age  uint8  `gorm:"column:age;size:8"`
+
+	Avatar []byte `gorm:"column:avatar;"` // type:varbinary(8000)
+
+	Balance float64 `gorm:"column:balance;type:decimal(18, 2)"`
+	Remark  string  `gorm:"column:remark;size:-1"`
+	Enabled bool    `gorm:"column:enabled;"`
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+	DeletedAt gorm.DeletedAt
+}
+
+func (t testTableColumnTypeModel) TableName() string {
+	return "test_table_column_type"
+}
+
+func TestMigrator_TableColumnType(t *testing.T) {
+	db, err := dbNamingCase, dbErrors[0]
+	if err != nil {
+		t.Fatal(err)
+	}
+	if db == nil {
+		t.Log("db is nil!")
+		return
+	}
+	testModel := new(testTableColumnTypeModel)
+
+	type args struct {
+		model interface{}
+		drop  bool
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "create", args: args{model: testModel}},
+		{name: "alter", args: args{model: testModel, drop: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err = db.AutoMigrate(tt.args.model); err != nil {
+				t.Errorf("AutoMigrate failed：%v", err)
+			}
+			if tt.args.drop {
+				_ = db.Migrator().DropTable(tt.args.model)
+			}
+		})
+	}
 }

@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/emirpasic/gods v1.18.1
 	github.com/sijms/go-ora/v2 v2.8.14
-	gorm.io/gorm v1.25.9
+	gorm.io/gorm v1.25.10
 )
 
 require (

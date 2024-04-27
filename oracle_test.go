@@ -13,6 +13,7 @@ import (
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 )
 
 var (
@@ -95,6 +96,9 @@ func getTestGormConfig() *gorm.Config {
 		),
 		DisableForeignKeyConstraintWhenMigrating: false,
 		IgnoreRelationshipsWhenMigrating:         false,
+		NamingStrategy: schema.NamingStrategy{
+			IdentifierMaxLength: 30,
+		},
 	}
 }
 

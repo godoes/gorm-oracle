@@ -173,7 +173,7 @@ type testTableColumnTypeModel struct {
 	Name string `gorm:"column:name;size:50"`
 	Age  uint8  `gorm:"column:age;size:8"`
 
-	Avatar []byte `gorm:"column:avatar;"` // type:varbinary(8000)
+	Avatar []byte `gorm:"column:avatar;"`
 
 	Balance float64 `gorm:"column:balance;type:decimal(18, 2)"`
 	Remark  string  `gorm:"column:remark;size:-1"`
@@ -213,6 +213,72 @@ func TestMigrator_TableColumnType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if err = db.AutoMigrate(tt.args.model); err != nil {
+				t.Errorf("AutoMigrate failed：%v", err)
+			}
+			if tt.args.drop {
+				_ = db.Migrator().DropTable(tt.args.model)
+			}
+		})
+	}
+}
+
+type testFieldNameIsReservedWord struct {
+	ID int64 `gorm:"column:id;size:64;not null;autoIncrement:true;autoIncrementIncrement:1;primaryKey"`
+
+	FLOAT float64 `gorm:"type:decimal(18, 2)"`
+	DESC  string  `gorm:"size:-1"`
+	ON    bool
+
+	Order int
+	Sort  int
+
+	CREATE time.Time
+	UPDATE time.Time
+	DELETE gorm.DeletedAt
+}
+
+func (t testFieldNameIsReservedWord) TableName() string {
+	return "test_name_is_reserved_word"
+}
+
+func TestMigrator_FieldNameIsReservedWord(t *testing.T) {
+	if err := dbErrors[0]; err != nil {
+		t.Fatal(err)
+	}
+	if dbNamingCase == nil {
+		t.Log("dbNamingCase is nil!")
+		return
+	}
+	if err := dbErrors[1]; err != nil {
+		t.Fatal(err)
+	}
+	if dbIgnoreCase == nil {
+		t.Log("dbNamingCase is nil!")
+		return
+	}
+
+	testModel := new(testFieldNameIsReservedWord)
+	_ = dbNamingCase.Migrator().DropTable(testModel)
+	_ = dbIgnoreCase.Migrator().DropTable(testModel)
+
+	type args struct {
+		db    *gorm.DB
+		model interface{}
+		drop  bool
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "createNamingCase", args: args{db: dbNamingCase, model: testModel}},
+		{name: "alterNamingCase", args: args{db: dbNamingCase, model: testModel, drop: true}},
+		{name: "createIgnoreCase", args: args{db: dbIgnoreCase, model: testModel}},
+		{name: "alterIgnoreCase", args: args{db: dbIgnoreCase, model: testModel, drop: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := tt.args.db
+			if err := db.AutoMigrate(tt.args.model); err != nil {
 				t.Errorf("AutoMigrate failed：%v", err)
 			}
 			if tt.args.drop {

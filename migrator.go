@@ -106,8 +106,11 @@ func (m Migrator) GetTypeAliases(databaseTypeName string) (types []string) {
 }
 
 func (m Migrator) CreateTable(values ...interface{}) (err error) {
+	ignoreCase := !m.Dialector.(Dialector).NamingCaseSensitive
 	for _, value := range values {
-		_ = m.TryQuotifyReservedWords(value)
+		if ignoreCase {
+			_ = m.TryQuotifyReservedWords(value)
+		}
 		_ = m.TryRemoveOnUpdate(value)
 	}
 	if err = m.Migrator.CreateTable(values...); err != nil {
@@ -210,8 +213,16 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 			return err
 		}
 
+		ignoreCase := !m.Dialector.(Dialector).NamingCaseSensitive
 		for _, c := range rawColumnTypes {
-			columnTypes = append(columnTypes, migrator.ColumnType{SQLColumnType: c})
+			columnType := migrator.ColumnType{SQLColumnType: c}
+			if ignoreCase && IsReservedWord(c.Name()) {
+				columnType.NameValue = sql.NullString{
+					String: strconv.Quote(c.Name()),
+					Valid:  true,
+				}
+			}
+			columnTypes = append(columnTypes, columnType)
 		}
 
 		return
@@ -464,16 +475,27 @@ func (m Migrator) TryRemoveOnUpdate(values ...interface{}) error {
 func (m Migrator) TryQuotifyReservedWords(values ...interface{}) error {
 	for _, value := range values {
 		if err := m.RunWithValue(value, func(stmt *gorm.Statement) error {
+			ignoreCase := !m.Dialector.(Dialector).NamingCaseSensitive
 			for idx, v := range stmt.Schema.DBNames {
-				if IsReservedWord(v) {
-					stmt.Schema.DBNames[idx] = strconv.Quote(v)
+				if ignoreCase {
+					v = strings.ToUpper(v)
 				}
+				if IsReservedWord(v) {
+					v = strconv.Quote(v)
+				}
+				stmt.Schema.DBNames[idx] = v
 			}
 
 			for _, v := range stmt.Schema.Fields {
+				fieldDBName := v.DBName
+				if ignoreCase {
+					v.DBName = strings.ToUpper(v.DBName)
+				}
 				if IsReservedWord(v.DBName) {
 					v.DBName = strconv.Quote(v.DBName)
 				}
+				delete(stmt.Schema.FieldsByDBName, fieldDBName)
+				stmt.Schema.FieldsByDBName[v.DBName] = v
 			}
 			return nil
 		}); err != nil {

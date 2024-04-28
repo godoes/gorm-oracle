@@ -26,7 +26,7 @@ func TestMergeCreate(t *testing.T) {
 	}
 	if err = migrator.AutoMigrate(model); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
-	} else if err == nil {
+	} else {
 		t.Log("AutoMigrate() success!")
 	}
 
@@ -110,7 +110,7 @@ func TestMergeCreateUnique(t *testing.T) {
 	}
 	if err = migrator.AutoMigrate(model); err != nil {
 		t.Fatalf("AutoMigrate() error = %v", err)
-	} else if err == nil {
+	} else {
 		t.Log("AutoMigrate() success!")
 	}
 

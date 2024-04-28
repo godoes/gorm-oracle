@@ -96,7 +96,12 @@ func (JSONMap) GormDBDataType(db *gorm.DB, field *schema.Field) string {
 	case "sqlserver":
 		return "NVARCHAR(MAX)"
 	case "oracle":
-		return "BLOB"
+		//return "BLOB"
+		// BLOB is only supported in Oracle databases version 12c r12.2.0.1.0 and above.
+		// to support lower versions of Oracle databases, it is recommended to use CLOB.
+		// see also:
+		// https://stackoverflow.com/questions/43603905/oracle-12c-error-getting-while-create-blob-column-table-with-json-type
+		return "CLOB"
 	default:
 		return getGormTypeFromTag(field)
 	}

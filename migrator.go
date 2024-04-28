@@ -87,18 +87,22 @@ func (m Migrator) CurrentDatabase() (name string) {
 // GetTypeAliases return database type aliases
 func (m Migrator) GetTypeAliases(databaseTypeName string) (types []string) {
 	switch databaseTypeName {
-	case "blob", "longraw":
-		types = append(types, "blob", "longraw")
-	case "clob", "longvarchar", "ocicloblocator":
-		types = append(types, "clob", "longvarchar", "ocicloblocator")
-	case "nchar", "varchar", "varchar2":
-		types = append(types, "nchar", "varchar", "varchar2")
+	case "blob", "raw", "longraw", "ocibloblocator", "ocifilelocator":
+		types = append(types, "blob", "raw", "longraw", "ocibloblocator", "ocifilelocator")
+	case "clob", "nclob", "longvarchar", "ocicloblocator":
+		types = append(types, "clob", "nclob", "longvarchar", "ocicloblocator")
+	case "char", "nchar", "varchar", "varchar2", "nvarchar2":
+		types = append(types, "char", "nchar", "varchar", "varchar2", "nvarchar2")
 	case "number", "integer", "smallint":
 		types = append(types, "number", "integer", "smallint")
-	case "timestampdty", "timestamp":
-		types = append(types, "timestampdty", "timestamp")
+	case "decimal", "numeric", "ibfloat", "ibdouble":
+		types = append(types, "decimal", "numeric", "ibfloat", "ibdouble")
+	case "timestampdty", "timestamp", "date":
+		types = append(types, "timestampdty", "timestamp", "date")
 	case "timestamptz_dty", "timestamp with time zone":
 		types = append(types, "timestamptz_dty", "timestamp with time zone")
+	case "timestampltz_dty", "timestampeltz", "timestamp with local time zone":
+		types = append(types, "timestampltz_dty", "timestampeltz", "timestamp with local time zone")
 	default:
 		return
 	}
@@ -438,7 +442,7 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 		return m.DB.Raw(
 			"SELECT COUNT(*) FROM USER_INDEXES WHERE TABLE_NAME = ? AND INDEX_NAME = ?",
 			m.Migrator.DB.NamingStrategy.TableName(stmt.Table),
-			m.Migrator.DB.NamingStrategy.IndexName(stmt.Table, name),
+			name,
 		).Row().Scan(&count)
 	})
 

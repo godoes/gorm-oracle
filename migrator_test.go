@@ -287,3 +287,87 @@ func TestMigrator_FieldNameIsReservedWord(t *testing.T) {
 		})
 	}
 }
+
+func TestMigrator_DatatypesJsonMapNamingCase(t *testing.T) {
+	if err := dbErrors[0]; err != nil {
+		t.Fatal(err)
+	}
+	if dbNamingCase == nil {
+		t.Log("dbNamingCase is nil!")
+		return
+	}
+
+	type testJsonMapNamingCase struct {
+		gorm.Model
+
+		Extras JSONMap `gorm:"check:\"extras\" IS JSON"`
+	}
+	testModel := new(testJsonMapNamingCase)
+	_ = dbNamingCase.Migrator().DropTable(testModel)
+
+	type args struct {
+		db    *gorm.DB
+		model interface{}
+		drop  bool
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "createDatatypesJsonMapNamingCase", args: args{db: dbNamingCase, model: testModel}},
+		{name: "alterDatatypesJsonMapNamingCase", args: args{db: dbNamingCase, model: testModel, drop: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := tt.args.db
+			if err := db.AutoMigrate(tt.args.model); err != nil {
+				t.Errorf("AutoMigrate failed：%v", err)
+			}
+			if tt.args.drop {
+				_ = db.Migrator().DropTable(tt.args.model)
+			}
+		})
+	}
+}
+
+func TestMigrator_DatatypesJsonMapIgnoreCase(t *testing.T) {
+	if err := dbErrors[1]; err != nil {
+		t.Fatal(err)
+	}
+	if dbIgnoreCase == nil {
+		t.Log("dbNamingCase is nil!")
+		return
+	}
+
+	type tesJsonMapIgnoreCase struct {
+		gorm.Model
+
+		Extras JSONMap `gorm:"check:extras IS JSON"`
+	}
+	testModel := new(tesJsonMapIgnoreCase)
+	_ = dbIgnoreCase.Migrator().DropTable(testModel)
+
+	type args struct {
+		db    *gorm.DB
+		model interface{}
+		drop  bool
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{name: "createDatatypesJsonMapIgnoreCase", args: args{db: dbIgnoreCase, model: testModel}},
+		{name: "alterDatatypesJsonMapIgnoreCase", args: args{db: dbIgnoreCase, model: testModel, drop: true}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			db := tt.args.db
+			if err := db.AutoMigrate(tt.args.model); err != nil {
+				t.Errorf("AutoMigrate failed：%v", err)
+			}
+			if tt.args.drop {
+				_ = db.Migrator().DropTable(tt.args.model)
+			}
+		})
+	}
+}

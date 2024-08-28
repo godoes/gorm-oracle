@@ -1,7 +1,6 @@
 package oracle
 
 import (
-	"database/sql"
 	"reflect"
 
 	"github.com/sijms/go-ora/v2"
@@ -76,9 +75,14 @@ func Create(db *gorm.DB) {
 					if idx > 0 {
 						_ = stmt.WriteByte(',')
 					}
-					stmt.AddVar(stmt, sql.Out{Dest: reflect.New(field.FieldType).Interface()})
+
+					outVar := go_ora.Out{Dest: reflect.New(field.FieldType).Interface()}
+					if field.Size > 0 {
+						outVar.Size = field.Size
+					}
+					stmt.AddVar(stmt, outVar)
 				}
-				_, _ = stmt.WriteString(" /*-sql.Out{}-*/")
+				_, _ = stmt.WriteString(" /*-go_ora.Out{}-*/")
 			}
 		}
 
@@ -229,7 +233,7 @@ func getDefaultValues(db *gorm.DB, idx int) {
 
 	for _, val := range db.Statement.Vars {
 		switch v := val.(type) {
-		case sql.Out:
+		case go_ora.Out:
 			switch insertTo.Kind() {
 			case reflect.Slice, reflect.Array:
 				for i := insertTo.Len() - 1; i >= 0; i-- {

@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/schema"
 )
 
+// Migrator implement gorm migrator interface
 type Migrator struct {
 	migrator.Migrator
 }
@@ -77,6 +78,7 @@ func (m Migrator) FullDataTypeOf(field *schema.Field) (expr clause.Expr) {
 	return
 }
 
+// CurrentDatabase returns current database name
 func (m Migrator) CurrentDatabase() (name string) {
 	_ = m.DB.Raw(
 		fmt.Sprintf(`SELECT ORA_DATABASE_NAME as "Current Database" FROM %s`, m.Dialector.(Dialector).DummyTableName()),
@@ -109,6 +111,7 @@ func (m Migrator) GetTypeAliases(databaseTypeName string) (types []string) {
 	return
 }
 
+// CreateTable create table in database for values
 func (m Migrator) CreateTable(values ...interface{}) (err error) {
 	ignoreCase := !m.Dialector.(Dialector).NamingCaseSensitive
 	for _, value := range values {
@@ -150,6 +153,8 @@ func (m Migrator) setCommentForColumn(field *schema.Field, stmt *gorm.Statement)
 	return
 }
 
+// DropTable drop table for values
+//
 //goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) DropTable(values ...interface{}) error {
 	values = m.ReorderModels(values, false)
@@ -167,6 +172,7 @@ func (m Migrator) DropTable(values ...interface{}) error {
 	return nil
 }
 
+// HasTable returns table exists or not for value, value could be a struct or string
 func (m Migrator) HasTable(value interface{}) bool {
 	var count int64
 
@@ -235,6 +241,7 @@ func (m Migrator) ColumnTypes(value interface{}) ([]gorm.ColumnType, error) {
 	return columnTypes, execErr
 }
 
+// RenameTable rename table from oldName to newName
 func (m Migrator) RenameTable(oldName, newName interface{}) (err error) {
 	resolveTable := func(name interface{}) (result string, err error) {
 		if v, ok := name.(string); ok {
@@ -268,6 +275,7 @@ func (m Migrator) RenameTable(oldName, newName interface{}) (err error) {
 	).Error
 }
 
+// GetTables returns tables under the current user database
 func (m Migrator) GetTables() (tableList []string, err error) {
 	err = m.DB.Raw(`SELECT TABLE_NAME FROM USER_TABLES
 		WHERE TABLESPACE_NAME IS NOT NULL AND TABLESPACE_NAME <> 'SYSAUX'
@@ -294,10 +302,13 @@ func (m Migrator) AddColumn(value interface{}, name string) (err error) {
 	return
 }
 
+// DropColumn drop value's "name" column
 func (m Migrator) DropColumn(value interface{}, name string) error {
 	return m.Migrator.DropColumn(value, name)
 }
 
+// AlterColumn alter value's "field" column's type based on schema definition
+//
 //goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) AlterColumn(value interface{}, field string) error {
 	if !m.HasColumn(value, field) {
@@ -318,6 +329,7 @@ func (m Migrator) AlterColumn(value interface{}, field string) error {
 	})
 }
 
+// HasColumn check has column "field" for value or not
 func (m Migrator) HasColumn(value interface{}, field string) bool {
 	var count int64
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
@@ -387,11 +399,14 @@ func (m Migrator) AlterDataTypeOf(stmt *gorm.Statement, field *schema.Field) (ex
 	return
 }
 
+// CreateConstraint create constraint
 func (m Migrator) CreateConstraint(value interface{}, name string) error {
 	_ = m.TryRemoveOnUpdate(value)
 	return m.Migrator.CreateConstraint(value, name)
 }
 
+// DropConstraint drop constraint
+//
 //goland:noinspection SqlNoDataSourceInspection
 func (m Migrator) DropConstraint(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
@@ -412,6 +427,7 @@ func (m Migrator) DropConstraint(value interface{}, name string) error {
 	})
 }
 
+// HasConstraint check has constraint or not
 func (m Migrator) HasConstraint(value interface{}, name string) bool {
 	var count int64
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
@@ -421,6 +437,7 @@ func (m Migrator) HasConstraint(value interface{}, name string) bool {
 	}) == nil && count > 0
 }
 
+// DropIndex drop index "name"
 func (m Migrator) DropIndex(value interface{}, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		if idx := stmt.Schema.LookIndex(name); idx != nil {
@@ -432,6 +449,7 @@ func (m Migrator) DropIndex(value interface{}, name string) error {
 	})
 }
 
+// HasIndex check has index "name" or not
 func (m Migrator) HasIndex(value interface{}, name string) bool {
 	var count int64
 	_ = m.RunWithValue(value, func(stmt *gorm.Statement) error {
@@ -449,7 +467,10 @@ func (m Migrator) HasIndex(value interface{}, name string) bool {
 	return count > 0
 }
 
-// RenameIndex https://docs.oracle.com/database/121/SPATL/alter-index-rename.htm
+// RenameIndex rename index from oldName to newName
+//
+// see also:
+// https://docs.oracle.com/database/121/SPATL/alter-index-rename.htm
 func (m Migrator) RenameIndex(value interface{}, oldName, newName string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
 		return m.DB.Exec(

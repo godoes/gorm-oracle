@@ -35,6 +35,7 @@ type Config struct {
 	RowNumberAliasForOracle11 string
 }
 
+// Dialector implement GORM database dialector
 type Dialector struct {
 	*Config
 }

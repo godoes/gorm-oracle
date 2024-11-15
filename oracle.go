@@ -139,6 +139,9 @@ func DelSessionParams(db *sql.DB, keys []string) {
 
 func convertCustomType(val interface{}) interface{} {
 	rv := reflect.ValueOf(val)
+	if !rv.IsValid() || rv.IsZero() {
+		return val
+	}
 	ri := rv.Interface()
 	typeName := reflect.TypeOf(ri).Name()
 	if reflect.TypeOf(val).Kind() == reflect.Ptr {

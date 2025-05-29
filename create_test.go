@@ -224,3 +224,43 @@ func TestOra03146TTC(t *testing.T) {
 	}
 	t.Log("执行成功，影响行数：", result.RowsAffected)
 }
+
+func TestCreateInBatches(t *testing.T) {
+	db, err := dbNamingCase, dbErrors[0]
+	if err != nil {
+		t.Fatal(err)
+	}
+	if db == nil {
+		t.Log("db is nil!")
+		return
+	}
+
+	model := TestTableUser{}
+	migrator := db.Set("gorm:table_comments", "用户信息表").Migrator()
+	if migrator.HasTable(model) {
+		if err = migrator.DropTable(model); err != nil {
+			t.Fatalf("DropTable() error = %v", err)
+		}
+	}
+	if err = migrator.AutoMigrate(model); err != nil {
+		t.Fatalf("AutoMigrate() error = %v", err)
+	} else {
+		t.Log("AutoMigrate() success!")
+	}
+
+	data := []TestTableUser{
+		{UID: "U1", Name: "Lisa", Account: "lisa", Password: "H6aLDNr", PhoneNumber: "+8616666666666", Sex: "0", UserType: 1, Enabled: true},
+		{UID: "U2", Name: "Daniela", Account: "daniela", Password: "Si7l1sRIC79", PhoneNumber: "+8619999999999", Sex: "1", UserType: 1, Enabled: true},
+		{UID: "U3", Name: "Tom", Account: "tom", Password: "********", PhoneNumber: "+8618888888888", Sex: "1", UserType: 1, Enabled: true},
+		{UID: "U4", Name: "James", Account: "james", Password: "********", PhoneNumber: "+8617777777777", Sex: "1", UserType: 2, Enabled: true},
+		{UID: "U5", Name: "John", Account: "john", Password: "********", PhoneNumber: "+8615555555555", Sex: "1", UserType: 1, Enabled: true},
+	}
+	t.Run("CreateInBatches", func(t *testing.T) {
+		tx := db.CreateInBatches(&data, 2)
+		if err = tx.Error; err != nil {
+			t.Fatal(err)
+		}
+		dataJsonBytes, _ := json.MarshalIndent(data, "", "  ")
+		t.Logf("result: %s", dataJsonBytes)
+	})
+}

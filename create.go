@@ -95,13 +95,14 @@ func outputInserted(db *gorm.DB) (lenDefaultValue int) {
 		return
 	}
 	lenDefaultValue = len(stmtSchema.FieldsWithDefaultDBValue)
-	if lenDefaultValue > 0 {
-		columns := make([]clause.Column, lenDefaultValue)
-		for idx, field := range stmtSchema.FieldsWithDefaultDBValue {
-			columns[idx] = clause.Column{Name: field.DBName}
-		}
-		db.Statement.AddClauseIfNotExists(clause.Returning{Columns: columns})
+	if lenDefaultValue == 0 {
+		return
 	}
+	columns := make([]clause.Column, lenDefaultValue)
+	for idx, field := range stmtSchema.FieldsWithDefaultDBValue {
+		columns[idx] = clause.Column{Name: field.DBName}
+	}
+	db.Statement.AddClauseIfNotExists(clause.Returning{Columns: columns})
 	db.Statement.Build("RETURNING")
 
 	_, _ = db.Statement.WriteString(" INTO ")

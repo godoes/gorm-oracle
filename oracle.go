@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/sijms/go-ora/v2"
+	go_ora "github.com/sijms/go-ora/v2"
 	"gorm.io/gorm"
 	"gorm.io/gorm/callbacks"
 	"gorm.io/gorm/clause"
@@ -363,11 +363,14 @@ func (d Dialector) RewriteLimit11(c clause.Clause, builder clause.Builder) {
 		if d.RowNumberAliasForOracle11 == "" {
 			d.RowNumberAliasForOracle11 = "ROW_NUM"
 		}
+		subqueryAlias := "T"
 		subQuerySQL := fmt.Sprintf(
-			"SELECT * FROM (SELECT T.*, ROW_NUMBER() OVER (ORDER BY %s) AS %s FROM (%s) T) WHERE %s BETWEEN %d AND %d",
-			d.getOrderByColumns(stmt),
+			"SELECT * FROM (SELECT %s.*, ROW_NUMBER() OVER (ORDER BY %s) AS %s FROM (%s) %s) WHERE %s BETWEEN %d AND %d",
+			subqueryAlias,
+			d.getOrderByColumns(stmt, &subqueryAlias),
 			d.RowNumberAliasForOracle11,
 			strings.TrimSpace(stmt.SQL.String()),
+			subqueryAlias,
 			d.RowNumberAliasForOracle11,
 			offsetRows+1,
 			offsetRows+limitRows,
@@ -408,7 +411,7 @@ func (d Dialector) rewriteRownumStmt(stmt *gorm.Statement, builder clause.Builde
 	}
 }
 
-func (d Dialector) getOrderByColumns(stmt *gorm.Statement) string {
+func (d Dialector) getOrderByColumns(stmt *gorm.Statement, subqueryAlias *string) string {
 	if orderByClause, ok := stmt.Clauses["ORDER BY"]; ok {
 		var orderBy clause.OrderBy
 		if orderBy, ok = orderByClause.Expression.(clause.OrderBy); ok && len(orderBy.Columns) > 0 {
@@ -417,7 +420,19 @@ func (d Dialector) getOrderByColumns(stmt *gorm.Statement) string {
 				if i > 0 {
 					orderByBuilder.WriteString(", ")
 				}
-				orderByBuilder.WriteString(column.Column.Name)
+				if subqueryAlias != nil {
+					// take the column name and the order by direction
+					re := regexp.MustCompile(`"([^"]+)"\s+(ASC|DESC)`)
+					m := re.FindString(column.Column.Name)
+					if m != "" {
+						orderByBuilder.WriteString(fmt.Sprintf("\"%s\".%s", *subqueryAlias, m))
+					} else {
+						orderByBuilder.WriteString(column.Column.Name)
+					}
+				} else {
+					orderByBuilder.WriteString(column.Column.Name)
+				}
+
 				if column.Desc {
 					orderByBuilder.WriteString(" DESC")
 				}

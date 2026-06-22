@@ -167,14 +167,21 @@ commit;
                 </a>
             </td>
             <td align="center">
+                <a href="https://github.com/PrinzEugenCz">
+                    <img src="https://avatars.githubusercontent.com/u/55370513?v=4" width="100;" alt="PrinzEugenCz"/>
+                    <br />
+                    <sub><b>PrinzEugenCz</b></sub>
+                </a>
+            </td>
+		</tr>
+		<tr>
+            <td align="center">
                 <a href="https://github.com/miclle">
                     <img src="https://avatars.githubusercontent.com/u/186694?v=4" width="100;" alt="miclle"/>
                     <br />
                     <sub><b>miclle</b></sub>
                 </a>
             </td>
-		</tr>
-		<tr>
             <td align="center">
                 <a href="https://github.com/dk333">
                     <img src="https://avatars.githubusercontent.com/u/24607870?v=4" width="100;" alt="dk333"/>

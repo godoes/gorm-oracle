@@ -28,7 +28,7 @@ jobs:
           # Username on commit
           committer_username: iTanken
           # email id of committer
-          committer_email: zixizixi@vip.qq.com
+          committer_email: 23544702+iTanken@users.noreply.github.com
           # check if branch is protected
           auto_detect_branch_protection: true
         env:
